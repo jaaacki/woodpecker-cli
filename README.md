@@ -141,4 +141,10 @@ wpci <alias> queue ...
 
 ## Status
 
-Design/scaffold phase. See `docs/PDR.md` and `docs/ROADMAP.md`.
+Usable and installable from releases (latest `v0.0.2`). Multi-account
+configuration and the core read-only API surface (repo, pipeline, org, agent,
+queue, cron, registry, secret listing) are implemented and covered by tests.
+Ships with a three-tier Woodpecker CI (PR / dev / release) and a one-line
+curl installer (macOS, Linux, Windows). Write operations land behind the
+`--write` flag. See `docs/PDR.md` and `docs/ROADMAP.md` for what remains —
+milestone 4 (controlled writes) and milestone 5 (API-parity hardening).
