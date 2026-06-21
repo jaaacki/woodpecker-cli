@@ -22,7 +22,7 @@ steps:
   build-binary:
     image: golang:1.26
     commands:
-      - go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=dev-$CI_COMMIT_SHA" -o dist/wpci ./cmd/wpci
+      - CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=dev-$CI_COMMIT_SHA" -o dist/wpci ./cmd/wpci
 
   publish-dev-artifact:
     image: alpine:3.20
