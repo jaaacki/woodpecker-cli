@@ -25,7 +25,7 @@ func NewVersionCommand() *cobra.Command {
 	}
 }
 
-// SetVersion allows the root package to override the compiled version string.
-func SetVersion(v string) {
-	versionString = v
+// CompiledVersion returns the version string compiled into the binary.
+func CompiledVersion() string {
+	return versionString
 }

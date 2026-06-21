@@ -20,8 +20,6 @@ var (
 	versionFlag bool
 )
 
-const version = "0.1.0"
-
 // Execute runs the root command.
 func Execute() error {
 	root := newRootCommand()
@@ -39,11 +37,6 @@ func NewContext() output.Context {
 	}
 }
 
-// Version returns the CLI version.
-func Version() string {
-	return version
-}
-
 func newRootCommand() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "wpci [account-alias] [api-area] [action] [args...]",
@@ -55,10 +48,10 @@ Usage:
   wpci <alias> doctor --json    Validate account and token
   wpci <alias> repo ls          List repositories
   wpci <alias> pipeline last   Show the latest pipeline`,
-		Version: version,
+		Version: commands.CompiledVersion(),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if versionFlag {
-				fmt.Println(version)
+				fmt.Println(commands.CompiledVersion())
 				return nil
 			}
 			_ = cmd.Help()
