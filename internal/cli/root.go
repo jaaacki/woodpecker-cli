@@ -45,15 +45,23 @@ func newRootCommand() *cobra.Command {
 		Short: "AI-friendly Woodpecker CI CLI",
 		Long: `wpci is a neutral, unofficial Woodpecker CI API client.
 
-Usage:
+Quick start:
   wpci account add              Add a Woodpecker account
   wpci <alias> doctor --json    Validate account and token
   wpci <alias> repo ls          List repositories
   wpci <alias> pipeline last   Show the latest pipeline`,
 		Version: commands.CompiledVersion(),
+		// ArbitraryArgs (instead of cobra's default legacyArgs) lets an
+		// unrecognised first argument reach RunE so we can produce a helpful
+		// "unknown account / did you mean" message instead of cobra's bare
+		// `unknown command "x"`. Known subcommands still route normally.
+		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			_ = cmd.Help()
-			return nil
+			if len(args) == 0 {
+				_ = cmd.Help()
+				return nil
+			}
+			return unknownCommandError(cmd, args[0])
 		},
 		SilenceUsage: true,
 	}
@@ -103,4 +111,33 @@ func ParseAlias(cmd *cobra.Command) string {
 		return parts[1]
 	}
 	return ""
+}
+
+// unknownCommandError explains an unrecognised first argument. It distinguishes
+// "no accounts configured yet" (point the user at `account add`) from "accounts
+// exist but this name is unknown" (list configured aliases, suggest typos), and
+// always offers cobra's closest-match suggestions (e.g. "acount" -> "account").
+func unknownCommandError(root *cobra.Command, name string) error {
+	var b strings.Builder
+	fmt.Fprintf(&b, "unknown command or account %q for \"wpci\"", name)
+
+	if sugs := root.SuggestionsFor(name); len(sugs) > 0 {
+		b.WriteString("\n\nDid you mean this?\n")
+		for _, s := range sugs {
+			fmt.Fprintf(&b, "\t%s\n", s)
+		}
+	}
+
+	accounts, _ := config.ListAccounts()
+	if len(accounts) == 0 {
+		b.WriteString("\nNo Woodpecker accounts configured. Add one:\n")
+		b.WriteString("\twpci account add <alias> --server <url> --token-stdin\n")
+	} else {
+		b.WriteString("\nConfigured accounts:\n")
+		for _, a := range accounts {
+			fmt.Fprintf(&b, "\t%s\n", a)
+		}
+		b.WriteString("\nAdd another with: wpci account add <alias> --server <url>\n")
+	}
+	return fmt.Errorf("%s", strings.TrimRight(b.String(), "\n"))
 }

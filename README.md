@@ -41,48 +41,45 @@ wpci home doctor --json
 - No large plugin framework until real usage demands it.
 - No one-off wrapper per Woodpecker server.
 
-## Planned Install Flow
+## Install
 
-No release artifacts exist yet. The install commands below describe the target
-release flow and will become usable after the first release is published.
+One line. The installer detects OS/arch, downloads the matching release binary,
+verifies its sha256 checksum, and puts `wpci` on a user-writable bin directory.
 
-Unix-like systems:
+Unix-like systems (macOS/Linux):
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/jaaacki/woodpecker-cli/main/install.sh | sh
 ```
 
-Windows PowerShell:
+Windows (PowerShell):
 
 ```powershell
 irm https://raw.githubusercontent.com/jaaacki/woodpecker-cli/main/install.ps1 | iex
 ```
 
-Install a specific version:
+Pin a specific release:
 
 ```sh
-WPCI_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/jaaacki/woodpecker-cli/main/install.sh | sh
+WPCI_VERSION=v0.0.1 curl -fsSL https://raw.githubusercontent.com/jaaacki/woodpecker-cli/main/install.sh | sh
 ```
 
-The installer is intended to download release artifacts, verify checksums when
-available, and install `wpci` into a user-writable bin directory. It should not
-ask for Woodpecker credentials.
+Env knobs: `WPCI_VERSION`, `WPCI_INSTALL_DIR`, `WPCI_REPO`. The installer never
+asks for Woodpecker credentials.
 
-## Planned Account Setup
+## Account Setup
 
-```sh
-wpci account add home --server https://ci.example.com
-wpci account token set home
-wpci home doctor
-```
-
-Agent-friendly setup:
+A fresh install has no accounts. Configure a server, then validate:
 
 ```sh
-wpci account add home --server https://ci.example.com
-printf '%s\n' "$WOODPECKER_TOKEN" | wpci account token set home --stdin
+# one command: server + token in one shot (token via stdin)
+printf '%s' "$WPCI_TOKEN" | wpci account add home --server https://ci.example.com --token-stdin
 wpci home doctor --json
 ```
+
+If `~/.local/bin` is not on your PATH the installer prints the `export PATH=…`
+line to add it. Windows uses `wpci account add home --server <url> --token-stdin`.
+
 
 ## Initial Command Surface
 
