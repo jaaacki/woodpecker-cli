@@ -135,10 +135,10 @@ wpci account token rm <alias>
 Core inspection:
 
 ```sh
-wpci <alias> info
 wpci <alias> version
-wpci <alias> whoami
 wpci <alias> doctor
+wpci <alias> user show
+wpci <alias> queue info
 ```
 
 Woodpecker API areas:
@@ -177,10 +177,11 @@ wpci <alias> queue ...
 
 ## Status
 
-Usable and installable from releases (latest `v0.0.2`). Multi-account
+Usable and installable from releases (latest `v0.0.6`). Multi-account
 configuration and the core read-only API surface (repo, pipeline, org, agent,
-queue, cron, registry, secret listing) are implemented and covered by tests.
-Ships with a three-tier Woodpecker CI (PR / dev / release) and a one-line
-curl installer (macOS, Linux, Windows). Write operations land behind the
-`--write` flag. See `docs/PDR.md` and `docs/ROADMAP.md` for what remains —
-milestone 4 (controlled writes) and milestone 5 (API-parity hardening).
+queue, cron, registry, secret listing, user) are implemented and covered by
+tests. Ships with a three-tier Woodpecker CI (PR / dev / release) and a one-line
+curl installer (macOS, Linux, Windows). The `--write` and `--confirm` flags are
+reserved for milestone 4 (controlled writes), which is not yet implemented. See
+`docs/PDR.md` and `docs/ROADMAP.md` for what remains — milestone 4 (controlled
+writes) and milestone 5 (API-parity hardening).
