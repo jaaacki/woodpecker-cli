@@ -73,3 +73,14 @@ func (c *Client) RepoID(fullName string) (int64, error) {
 	}
 	return repo.ID, nil
 }
+
+// OrgID resolves an organization name (slug) to its numeric ID via the 3.x
+// lookup endpoint. The org-scoped secret/registry endpoints require the numeric
+// org ID, not the name.
+func (c *Client) OrgID(name string) (int64, error) {
+	var org api.Org
+	if err := c.GetJSON(c.URL("orgs", "lookup", name), &org); err != nil {
+		return 0, err
+	}
+	return org.ID, nil
+}

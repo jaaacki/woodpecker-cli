@@ -48,11 +48,11 @@ func TestPipelinePs(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/repos/lookup/owner/repo":
 			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
-		case "/api/repos/42/pipelines/7/workflows":
-			_, _ = w.Write([]byte(`[
+		case "/api/repos/42/pipelines/7":
+			_, _ = w.Write([]byte(`{"id": 7, "workflows": [{"id": 200, "name": "default", "children": [
 				{"id": 101, "name": "build", "state": "success", "started": 1718000000, "stopped": 1718000100, "exit_code": 0},
 				{"id": 102, "name": "test", "state": "failure", "started": 1718000200, "stopped": 1718000300, "exit_code": 1}
-			]`))
+			]}]}`))
 		default:
 			http.Error(w, "not found", http.StatusNotFound)
 		}
@@ -79,9 +79,9 @@ func TestPipelineLogRaw(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/repos/lookup/owner/repo":
 			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
-		case "/api/repos/42/pipelines/7/workflows":
-			_, _ = w.Write([]byte(`[{"id": 101, "name": "build"}]`))
-		case "/api/repos/42/logs/101":
+		case "/api/repos/42/pipelines/7":
+			_, _ = w.Write([]byte(`{"id": 7, "workflows": [{"id": 200, "children": [{"id": 101, "name": "build"}]}]}`))
+		case "/api/repos/42/logs/7/101":
 			_, _ = w.Write([]byte(`[{"id": 1, "step_id": 101, "data": "bGluZTEK"}]`))
 		default:
 			http.Error(w, "not found", http.StatusNotFound)

@@ -42,7 +42,12 @@ func newSecretListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 					ctx.Error("org scope requires an organization name", output.ExitUsage)
 					return nil
 				}
-				urlStr = c.URL("orgs", args[1], "secrets")
+				orgID, err := c.OrgID(args[1])
+				if err != nil {
+					ctx.Error(err.Error(), client.ExitForError(err))
+					return nil
+				}
+				urlStr = c.URL("orgs", fmt.Sprintf("%d", orgID), "secrets")
 			case "repo":
 				if len(args) < 2 {
 					ctx.Error("repo scope requires owner/repo", output.ExitUsage)

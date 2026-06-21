@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -201,21 +202,29 @@ func newPipelineConfigCommand(alias string, newCtx ContextFactory) *cobra.Comman
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
 			}
-			var cfg api.PipelineConfig
+			var cfgs []api.PipelineConfig
 			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "config")
-			if err := c.GetJSON(urlStr, &cfg); err != nil {
+			if err := c.GetJSON(urlStr, &cfgs); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
+			var combined strings.Builder
+			for _, c2 := range cfgs {
+				if combined.Len() > 0 {
+					combined.WriteString("\n---\n")
+				}
+				combined.WriteString(c2.Data)
+			}
+			cfgData := combined.String()
 			if ctx.Raw {
-				ctx.RawBytes([]byte(cfg.Data))
+				ctx.RawBytes([]byte(cfgData))
 				return nil
 			}
 			if ctx.JSON {
-				ctx.Data(cfg)
+				ctx.Data(cfgs)
 				return nil
 			}
-			ctx.Println(cfg.Data)
+			ctx.Println(cfgData)
 			return nil
 		},
 		SilenceUsage: true,
@@ -283,9 +292,8 @@ func newPipelinePsCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
 			}
-			var steps []api.Step
-			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "workflows")
-			if err := c.GetJSON(urlStr, &steps); err != nil {
+			steps, err := fetchSteps(c, repoID, number)
+			if err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
@@ -313,6 +321,22 @@ func newPipelinePsCommand(alias string, newCtx ContextFactory) *cobra.Command {
 		},
 		SilenceUsage: true,
 	}
+}
+
+// fetchSteps returns the flattened step list for a pipeline. In Woodpecker 3.x
+// the steps are embedded under each workflow's Children, so this GETs the
+// pipeline and flattens them.
+func fetchSteps(c *client.Client, repoID, number int64) ([]api.Step, error) {
+	var p api.Pipeline
+	urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10))
+	if err := c.GetJSON(urlStr, &p); err != nil {
+		return nil, err
+	}
+	var steps []api.Step
+	for _, wf := range p.Workflows {
+		steps = append(steps, wf.Children...)
+	}
+	return steps, nil
 }
 
 func newPipelineLogCommand(alias string, newCtx ContextFactory) *cobra.Command {
@@ -348,9 +372,8 @@ func newPipelineLogShowCommand(alias string, newCtx ContextFactory) *cobra.Comma
 			}
 			stepName := args[2]
 
-			var steps []api.Step
-			stepsURL := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "workflows")
-			if err := c.GetJSON(stepsURL, &steps); err != nil {
+			steps, err := fetchSteps(c, repoID, number)
+			if err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
@@ -367,7 +390,7 @@ func newPipelineLogShowCommand(alias string, newCtx ContextFactory) *cobra.Comma
 			}
 
 			var logs []api.Log
-			logsURL := c.URL("repos", strconv.FormatInt(repoID, 10), "logs", strconv.FormatInt(stepID, 10))
+			logsURL := c.URL("repos", strconv.FormatInt(repoID, 10), "logs", strconv.FormatInt(number, 10), strconv.FormatInt(stepID, 10))
 			if err := c.GetJSON(logsURL, &logs); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
