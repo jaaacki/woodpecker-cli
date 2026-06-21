@@ -1,0 +1,35 @@
+# Local Woodpecker DEV validation for woodpecker-cli.
+#
+# DEV never uses the host Go runtime. Tests run in a throwaway golang container;
+# a binary is built and published to a rolling GitHub prerelease (`dev`) so a
+# developer can download it and run e2e on their dev machine. The dev machine
+# runs the produced binary, never the Go runtime.
+#
+# Trigger: push to `dev`. Produces a rolling `dev` prerelease binary.
+
+when:
+  - event: push
+    branch: dev
+
+steps:
+  test:
+    image: golang:1.26
+    commands:
+      - go mod download
+      - go vet ./...
+      - go test ./...
+
+  build-binary:
+    image: golang:1.26
+    commands:
+      - CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=dev-$CI_COMMIT_SHA" -o dist/wpci ./cmd/wpci
+
+  publish-dev-artifact:
+    image: alpine:3.20
+    environment:
+      GH_TOKEN:
+        from_secret: github_token
+    depends_on: [build-binary]
+    commands:
+      - apk add --no-cache github-cli
+      - gh release create dev dist/wpci --title "dev build" --notes "Rolling dev build from $CI_COMMIT_SHA" --prerelease --target $CI_COMMIT_SHA || gh release upload dev dist/wpci --clobber
