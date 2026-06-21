@@ -30,10 +30,12 @@ func newUserShowCommand(alias string, newCtx ContextFactory) *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			var user api.User
 			if err := c.GetJSON(c.URL("user"), &user); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(user)
@@ -55,10 +57,12 @@ func newUserReposCommand(alias string, newCtx ContextFactory) *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			var repos []api.Repo
 			if err := c.GetJSON(c.URL("user", "repos"), &repos); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(repos)
