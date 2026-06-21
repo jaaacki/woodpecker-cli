@@ -30,18 +30,48 @@ CLI vocabulary.
 
 ## Core Requirements
 
-1. Multi-account configuration.
-2. Credentials stored outside repos.
-3. Safe token handling and redacted diagnostics.
-4. Broad Woodpecker API coverage.
-5. Human-readable default output.
-6. `--json` output for every command.
-7. Explicit write gates for mutating operations.
-8. Public release installation via `install.sh` and `install.ps1`.
+1. Implement in Go.
+2. Expose one binary named `wpci`.
+3. Multi-account configuration.
+4. Credentials stored outside repos.
+5. Safe token handling and redacted diagnostics.
+6. Broad Woodpecker API coverage.
+7. Human-readable default output.
+8. `--json` output for every command.
+9. Explicit write gates for mutating operations.
+10. Public release installation via `install.sh` and `install.ps1`.
+
+## Implementation Defaults
+
+Use these defaults unless a later implementation issue has a stronger reason to
+change them:
+
+- Language: Go.
+- CLI framework: Cobra.
+- HTTP client: Go standard `net/http`.
+- JSON: Go standard `encoding/json`.
+- Config format: JSON files.
+- Binary name: `wpci`.
+- Module path: `github.com/jaaacki/woodpecker-cli`.
+- Internal package layout:
+
+```text
+cmd/wpci/          main package
+internal/cli/      Cobra command tree
+internal/config/   account and token storage
+internal/client/   HTTP transport, auth, pagination, errors
+internal/wood/     Woodpecker API methods
+internal/output/   tables, JSON, raw output
+internal/safety/   --write and --confirm checks
+```
+
+Avoid code generation in v1. Use the OpenAPI document as the parity checklist,
+not as a generated client source, unless a later spike proves generation is
+cleaner.
 
 ## Configuration
 
-Suggested file layout:
+File layout:
 
 ```text
 ~/.config/wpci/
@@ -51,14 +81,14 @@ Suggested file layout:
     <alias>
 ```
 
-Suggested permissions:
+Permissions:
 
 ```text
 ~/.config/wpci          700
 ~/.config/wpci/tokens/* 600
 ```
 
-Account config should include:
+Account config schema:
 
 ```json
 {
@@ -70,6 +100,17 @@ Account config should include:
   "timeout_seconds": 30
 }
 ```
+
+Rules:
+
+- `account add` creates the account file and normalizes trailing slashes from
+  `server`.
+- `api_base` defaults to `/api`.
+- `auth` defaults to `bearer-token`.
+- `timeout_seconds` defaults to `30`.
+- Never store the token in the account JSON.
+- `account show` may print account config but must never print token contents.
+- `token status` prints present/missing and permission status only.
 
 ## CLI Shape
 
@@ -143,6 +184,15 @@ wpci home repo rm jaaacki/old-project --write --confirm jaaacki/old-project
 
 Admin commands should be available, but not easy to run accidentally.
 
+Default gates:
+
+- Read-only commands require no gate.
+- Any `POST`, `PATCH`, or `DELETE` endpoint requires `--write`.
+- Destructive deletes require `--write --confirm <target>`.
+- Queue pause/resume, user mutation, agent mutation, forge mutation, and global
+  secret/registry mutation require `--write --confirm <target>`.
+- If `--json` is set, write-gate failures must be JSON errors.
+
 ## Output Model
 
 Default output is concise human-readable text or tables.
@@ -152,6 +202,18 @@ Every command supports:
 ```sh
 --json
 --raw
+```
+
+Exit codes:
+
+```text
+0 success
+1 generic runtime error
+2 usage/argument error
+3 config or credential error
+4 authentication/authorization error
+5 remote API error
+6 safety gate error
 ```
 
 Agent-friendly errors should be structured:
@@ -166,6 +228,18 @@ Agent-friendly errors should be structured:
   }
 }
 ```
+
+For `--json`, successful command output should be wrapped unless `--raw` is also
+set:
+
+```json
+{
+  "ok": true,
+  "data": {}
+}
+```
+
+`--raw` prints the upstream API response body where practical.
 
 ## Agent-Native Lessons
 
@@ -215,6 +289,38 @@ Initial endpoint families to cover:
 - agents
 - queue
 
+Command-to-endpoint mapping should live in code comments or docs near the
+implementation. Use these endpoint mappings for the first pass:
+
+```text
+whoami/info                 GET /user
+version                     GET /version
+repo ls                     GET /repos
+repo show                   GET /repos/lookup/{repo_full_name}, fallback GET /repos
+repo branches               GET /repos/{repo_id}/branches
+repo perms                  GET /repos/{repo_id}/permissions
+pipeline ls                 GET /repos/{repo_id}/pipelines
+pipeline show               GET /repos/{repo_id}/pipelines/{pipeline_number}
+pipeline config             GET /repos/{repo_id}/pipelines/{pipeline_number}/config
+pipeline metadata           GET /repos/{repo_id}/pipelines/{pipeline_number}/metadata
+pipeline log show           GET /repos/{repo_id}/logs/{pipeline_number}/{step_id}
+cron ls                     GET /repos/{repo_id}/cron
+secret ls global            GET /secrets
+secret ls org               GET /orgs/{org_id}/secrets
+secret ls repo              GET /repos/{repo_id}/secrets
+registry ls global          GET /registries
+registry ls org             GET /orgs/{org_id}/registries
+registry ls repo            GET /repos/{repo_id}/registries
+org ls                      GET /orgs
+user ls                     GET /users
+agent ls                    GET /agents
+queue info                  GET /queue/info
+```
+
+Resolve `<owner/repo>` to `repo_id` once per command. Prefer
+`/repos/lookup/{repo_full_name}` and fall back to scanning `/repos` for
+deployments that do not support lookup.
+
 ## Distribution
 
 The repo should publish GitHub releases with platform artifacts:
@@ -244,6 +350,21 @@ application runtime.
 No release artifacts exist yet. Public install commands must be presented as the
 target release flow until the first release is published.
 
+Release defaults:
+
+- Build with GoReleaser if it stays simple; otherwise use a GitHub Actions
+  matrix running `go build`.
+- Publish static binaries named:
+  - `wpci-darwin-arm64`
+  - `wpci-darwin-amd64`
+  - `wpci-linux-amd64`
+  - `wpci-linux-arm64`
+  - `wpci-windows-amd64.exe`
+- Publish `checksums.txt` with SHA-256 hashes.
+- Installers install to `~/.local/bin` by default.
+- `WPCI_INSTALL_DIR` overrides install location.
+- `WPCI_VERSION` chooses a release tag; default is latest.
+
 ## Credits and Attribution
 
 - Woodpecker CI and its maintainers provide the upstream CI system, API, CLI
@@ -254,3 +375,17 @@ target release flow until the first release is published.
   deterministic setup: https://github.com/HKUDS/CLI-Anything
 - This project is an independent, unofficial implementation. Do not imply
   affiliation with Woodpecker CI or HKUDS/CLI-Anything.
+
+## Real Open Questions
+
+These are the few decisions that should stay open until implementation pressure
+forces an answer:
+
+- Should the public repository remain named `woodpecker-cli`, or should it be
+  renamed to reduce confusion with Woodpecker's official CLI?
+- Should v1 include write/admin commands, or should the first release be
+  read-only plus account provisioning?
+- Should secrets support setting values in v1, or only list/show metadata until
+  redaction behavior is heavily tested?
+- Should log streaming use `/stream/logs/...` in v1, or should v1 start with
+  non-streaming log fetch only?

@@ -8,11 +8,14 @@
 
 ## Milestone 1: Minimal Multi-Account CLI
 
+- Initialize Go module `github.com/jaaacki/woodpecker-cli`.
+- Add Cobra command tree and `cmd/wpci/main.go`.
 - Implement `wpci account add/ls/show/rm/test`.
 - Implement `wpci account token set/status/rm`.
 - Store configs under `~/.config/wpci/accounts`.
 - Store tokens under `~/.config/wpci/tokens` with owner-only permissions.
 - Implement `wpci <alias> doctor --json`.
+- Define stable JSON success/error wrappers and exit codes.
 
 ## Milestone 2: Read-Only API Coverage
 
@@ -22,6 +25,8 @@
   and queue info.
 - Resolve repo slugs through `/repos/lookup/{repo_full_name}` where supported,
   with `/repos` fallback for older deployments.
+- Add subprocess tests for `--help`, `--json`, config errors, auth errors, and
+  representative read-only commands with fixture HTTP servers.
 
 ## Milestone 3: Release Installation
 
@@ -29,6 +34,8 @@
 - Publish platform artifacts.
 - Publish `checksums.txt`.
 - Make `install.sh` and `install.ps1` install latest or requested release.
+- Test installer behavior against a draft/test release before publishing install
+  commands as stable.
 
 ## Milestone 4: Controlled Writes
 
@@ -43,4 +50,3 @@
 - Add compatibility probes for Woodpecker version/API differences.
 - Add integration tests against fixture responses and, where practical, a local
   Woodpecker test instance.
-
