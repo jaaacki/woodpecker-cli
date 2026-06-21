@@ -40,13 +40,14 @@ jobs:
           GOARCH: ${{ matrix.arch }}
         run: |
           mkdir -p dist
+          asset="wpci-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}"
           go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=${{ github.ref_name }}" \
-            -o "dist/wpci_${{ matrix.os }}_${{ matrix.arch }}${{ matrix.ext }}" ./cmd/wpci
+            -o "dist/$asset" ./cmd/wpci
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wpci_${{ matrix.os }}_${{ matrix.arch }}
-          path: dist/wpci_${{ matrix.os }}_${{ matrix.arch }}${{ matrix.ext }}
+          name: wpci-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/wpci-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }}
 
   publish:
     needs: release

@@ -75,7 +75,6 @@ Usage:
 
 	root.AddCommand(commands.NewAccountCommand())
 	root.AddCommand(commands.NewVersionCommand())
-	root.AddCommand(commands.NewDoctorCommand(nil))
 	return root
 }
 
