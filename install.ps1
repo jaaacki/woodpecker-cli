@@ -35,25 +35,33 @@ try {
 
   try {
     $checksums = Join-Path $tmp "checksums.txt"
-    Invoke-WebRequest "$base/checksums.txt" -OutFile $checksums
+    Invoke-WebRequest "$base/checksums.txt" -OutFile $checksums -ErrorAction Stop
     $line = Get-Content $checksums | Where-Object { $_ -match "\s+$([regex]::Escape($asset))$" } | Select-Object -First 1
-    if ($line) {
+    if (-not $line) {
+      Write-Warning "no checksum entry for $asset; skipping verification"
+    } else {
       $expected = ($line -split "\s+")[0]
       $actual = (Get-FileHash -Algorithm SHA256 $download).Hash.ToLowerInvariant()
       if ($actual -ne $expected.ToLowerInvariant()) {
-        throw "checksum mismatch"
+        throw "checksum mismatch for $asset (expected $expected, got $actual)"
       }
+      Write-Host "checksum verified: $actual"
     }
   } catch {
-    if ($_.Exception.Message -eq "checksum mismatch") { throw }
+    if ($_.Exception.Message -like "checksum mismatch*") { throw }
+    Write-Warning "could not fetch checksums.txt from $base; skipping verification ($_)"
   }
 
   $target = Join-Path $InstallDir $BinName
   Move-Item -Force $download $target
+
   Write-Host "Installed: $target"
-  Write-Host "Next:"
-  Write-Host "  wpci account add home --server https://ci.example.com"
-  Write-Host "  wpci account token set home"
+  if ($env:PATH -notlike "*$InstallDir*") {
+    Write-Warning "$InstallDir is not on your PATH. Add it, then run wpci:"
+    Write-Host "  [Environment]::SetEnvironmentVariable('PATH', `"$InstallDir;`$([Environment]::GetEnvironmentVariable('PATH','User'))`", 'User')"
+  }
+  Write-Host "Next: configure a Woodpecker server account:"
+  Write-Host "  `$token = Read-Host -AsSecureString 'Token'; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$token)) | wpci account add home --server https://ci.example.com --token-stdin"
   Write-Host "  wpci home doctor"
 } finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
