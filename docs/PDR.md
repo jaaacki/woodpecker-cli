@@ -167,6 +167,26 @@ Agent-friendly errors should be structured:
 }
 ```
 
+## Agent-Native Lessons
+
+Useful patterns from CLI-Anything:
+
+- Every command must have standard `--help` discoverability.
+- Every command must support `--json` for machine consumption.
+- The installed CLI should be tested through subprocess calls, not only library
+  unit tests.
+- Setup should be deterministic: install, add account, set token, run
+  `doctor --json`.
+- The CLI should delegate to real Woodpecker APIs instead of reimplementing CI
+  concepts.
+
+Patterns not needed for the first version:
+
+- A generated-harness framework.
+- A plugin registry.
+- A stateful REPL.
+- Preview/live-preview workflows.
+
 ## API Coverage Target
 
 Use the upstream OpenAPI specification as the coverage baseline:
@@ -216,4 +236,3 @@ irm https://raw.githubusercontent.com/jaaacki/woodpecker-cli/main/install.ps1 | 
 
 The installer should fetch releases, not execute arbitrary source code as the
 application runtime.
-
