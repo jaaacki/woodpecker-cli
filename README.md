@@ -80,25 +80,40 @@ wpci home doctor --json
 If `~/.local/bin` is not on your PATH the installer prints the `export PATH=…`
 line to add it. Windows uses `wpci account add home --server <url> --token-stdin`.
 
-### Shell-alias accounts (zero config)
-
-Skip `account add` entirely — define an account via env vars and shorten it with
-a shell alias. Convention: `WPCI_<ALIAS>_SERVER` and `WPCI_<ALIAS>_TOKEN`, alias
-uppercased with non-alphanumerics as `_`.
+### `wpci setup` (recommended — works in any shell, including AI agents)
 
 ```sh
-# ~/.zshrc
-export WPCI_HOME_SERVER=https://ci.example.com
-export WPCI_HOME_TOKEN=ghp_xxx
-alias wpci-home='wpci home'
-
-# then, anywhere:
-wpci-home repo ls                          # = wpci home repo ls
-wpci-home pipeline last jaaacki/woodpecker-cli --branch main
+printf '%s' "$WPCI_TOKEN" | wpci setup --server https://ci.example.com --token-stdin
+wpci-local doctor
 ```
 
-A stored account (from `account add`) wins; env fills in only when no account
-file exists. `wpci home doctor` validates the env-defined account the same way.
+`wpci setup` stores the account (server + token) and writes a small
+`wpci-<alias>` wrapper script onto PATH. The wrapper is a **real script**
+(`exec wpci <alias>`), not a shell alias — so it is inherited by scripts,
+non-interactive shells, and AI agents (which never load `.zshrc` aliases).
+Flags: `--server` (required), `--alias` (default `local`), `--token` /
+`--token-stdin`, `--bin-dir`, `--tls-skip-verify`, `--timeout`.
+
+> Do **not** use a shell alias (`alias wpci-local='wpci local'`) for this —
+> aliases live only in the interactive shell that sourced `.zshrc` and are **not**
+> inherited by scripts or agent subprocesses. Use `wpci setup` (a real wrapper).
+
+### Env-defined accounts (alternative)
+
+You can also define an account purely via env vars with no stored file:
+`WPCI_<ALIAS>_SERVER` and `WPCI_<ALIAS>_TOKEN` (alias uppercased, non-alphanumerics
+as `_`). This makes `wpci <alias>` work, but it does **not** create a
+`wpci-<alias>` command in non-interactive shells — use `wpci setup` for that.
+
+```sh
+export WPCI_HOME_SERVER=https://ci.example.com
+export WPCI_HOME_TOKEN=ghp_xxx
+wpci home repo ls
+```
+
+A stored account (from `setup` or `account add`) wins; env fills in only when no
+account file exists. `wpci home doctor` validates the env-defined account too.
+
 
 
 
