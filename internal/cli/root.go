@@ -73,6 +73,7 @@ Quick start:
 
 	root.AddCommand(commands.NewAccountCommand())
 	root.AddCommand(commands.NewVersionCommand())
+	root.AddCommand(commands.NewSetupCommand())
 	return root
 }
 
