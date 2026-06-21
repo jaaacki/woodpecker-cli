@@ -76,31 +76,44 @@ Quick start:
 	return root
 }
 
-// addAliasCommands attaches a command for every configured account. This makes
-// `wpci <alias> repo ls` work naturally with Cobra.
+// addAliasCommands attaches a command for every configured account — both those
+// added with `wpci account add` and any defined only via WPCI_<ALIAS>_SERVER env
+// (zero-config accounts). This makes `wpci <alias> repo ls` work with Cobra.
 func addAliasCommands(root *cobra.Command) {
-	aliases, err := config.ListAccounts()
-	if err != nil {
-		return
-	}
-	for _, alias := range aliases {
+	registered := map[string]bool{}
+	stored, _ := config.ListAccounts()
+	for _, alias := range stored {
 		acct, err := config.LoadAccount(alias)
 		if err != nil {
 			continue
 		}
-		aliasCmd := &cobra.Command{
-			Use:   alias,
-			Short: fmt.Sprintf("Account %s (%s)", alias, acct.Server),
-			Long:  fmt.Sprintf("Commands scoped to the %q Woodpecker account.", alias),
-			Args:  cobra.MinimumNArgs(1),
-			RunE: func(cmd *cobra.Command, args []string) error {
-				return nil
-			},
-			SilenceUsage: true,
-		}
-		commands.RegisterAlias(aliasCmd, alias, NewContext)
-		root.AddCommand(aliasCmd)
+		registerAliasCommand(root, alias, fmt.Sprintf("Account %s (%s)", alias, acct.Server))
+		registered[alias] = true
 	}
+	for _, alias := range config.EnvAccounts() {
+		if registered[alias] {
+			continue
+		}
+		registerAliasCommand(root, alias, fmt.Sprintf("Account %s (env)", alias))
+		registered[alias] = true
+	}
+}
+
+// registerAliasCommand builds and attaches the scoped command for one account
+// alias. Account/token are resolved at call time (stored account or env).
+func registerAliasCommand(root *cobra.Command, alias, short string) {
+	aliasCmd := &cobra.Command{
+		Use:   alias,
+		Short: short,
+		Long:  fmt.Sprintf("Commands scoped to the %q Woodpecker account.", alias),
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+		SilenceUsage: true,
+	}
+	commands.RegisterAlias(aliasCmd, alias, NewContext)
+	root.AddCommand(aliasCmd)
 }
 
 // ParseAlias extracts the account alias from the command path. Cobra makes the
@@ -129,13 +142,23 @@ func unknownCommandError(root *cobra.Command, name string) error {
 	}
 
 	accounts, _ := config.ListAccounts()
-	if len(accounts) == 0 {
+	envAccounts := config.EnvAccounts()
+	if len(accounts) == 0 && len(envAccounts) == 0 {
 		b.WriteString("\nNo Woodpecker accounts configured. Add one:\n")
 		b.WriteString("\twpci account add <alias> --server <url> --token-stdin\n")
+		b.WriteString("\nor set WPCI_<ALIAS>_SERVER and WPCI_<ALIAS>_TOKEN in your shell.\n")
 	} else {
-		b.WriteString("\nConfigured accounts:\n")
-		for _, a := range accounts {
-			fmt.Fprintf(&b, "\t%s\n", a)
+		if len(accounts) > 0 {
+			b.WriteString("\nConfigured accounts:\n")
+			for _, a := range accounts {
+				fmt.Fprintf(&b, "\t%s\n", a)
+			}
+		}
+		if len(envAccounts) > 0 {
+			b.WriteString("\nEnv-only accounts:\n")
+			for _, a := range envAccounts {
+				fmt.Fprintf(&b, "\t%s\n", a)
+			}
 		}
 		b.WriteString("\nAdd another with: wpci account add <alias> --server <url>\n")
 	}

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -28,16 +29,24 @@ type Client struct {
 	Out        output.Context
 }
 
-// New creates a Client from an account alias.
+// New creates a Client from an account alias. Account and token resolve in
+// order: a stored account (`wpci account add`) first, then the
+// WPCI_<ALIAS>_SERVER / WPCI_<ALIAS>_TOKEN env vars as a fallback so an account
+// can be used with zero configuration from a shell.
 func New(alias string, out output.Context) (*Client, error) {
-	acct, err := config.LoadAccount(alias)
+	acct, err := config.ResolveAccount(alias)
 	if err != nil {
 		return nil, err
 	}
-	tok := auth.NewToken(alias)
-	value, err := tok.Load()
-	if err != nil {
-		return nil, err
+	value, _ := auth.NewToken(alias).Load()
+	if value == "" {
+		value = os.Getenv(config.EnvTokenName(alias))
+	}
+	if value == "" {
+		return nil, fmt.Errorf(
+			"no token for account %q: set it with `wpci account token set %s` or the %s env var",
+			alias, alias, config.EnvTokenName(alias),
+		)
 	}
 	return NewWithToken(acct, value, out), nil
 }
