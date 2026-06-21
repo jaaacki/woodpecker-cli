@@ -4,8 +4,8 @@
 # output is a GitHub Release of cross-compiled binaries. This replaces the
 # previous .github/workflows/release.yml.
 #
-# Trigger: tag push (v*). Builds linux/darwin amd64+arm64, generates checksums,
-# publishes the GitHub Release with generated notes.
+# Trigger: tag push (v*). Builds linux/darwin/windows amd64+arm64, generates
+# checksums, publishes the GitHub Release with generated notes.
 #
 # NOTE on the build loop: Woodpecker 3.x made `matrix:` a top-level key that
 # spins up a SEPARATE workflow (separate workspace) per combination, so matrix
@@ -23,10 +23,12 @@ steps:
       - mkdir -p dist
       - |
         set -e
-        for GOOS in linux darwin; do
+        for GOOS in linux darwin windows; do
           for GOARCH in amd64 arm64; do
+            ext=""
+            [ "$GOOS" = "windows" ] && ext=".exe"
             echo "building ${GOOS}/${GOARCH}"
-            GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=$CI_COMMIT_TAG" -o "dist/wpci-$GOOS-$GOARCH" ./cmd/wpci
+            GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=$CI_COMMIT_TAG" -o "dist/wpci-$GOOS-$GOARCH$ext" ./cmd/wpci
           done
         done
 

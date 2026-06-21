@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 
@@ -13,6 +14,18 @@ import (
 	"github.com/jaaacki/woodpecker-cli/internal/config"
 	"github.com/jaaacki/woodpecker-cli/internal/output"
 )
+
+// namedArg requires exactly one positional argument and names the placeholder in
+// the error so the message is actionable ("wpci account add requires <alias>")
+// instead of cobra's generic "accepts 1 arg(s), received 0".
+func namedArg(placeholder string) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) != 1 {
+			return fmt.Errorf("%s requires <%s>", cmd.CommandPath(), placeholder)
+		}
+		return nil
+	}
+}
 
 // NewAccountCommand returns `wpci account ...`.
 func NewAccountCommand() *cobra.Command {
@@ -60,7 +73,7 @@ func accountAddCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <alias>",
 		Short: "Add or update an account",
-		Args:  cobra.ExactArgs(1),
+		Args:  namedArg("alias"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			alias := args[0]
 			ctx := NewContextFromCmd(cmd)
