@@ -1,0 +1,47 @@
+# Local Woodpecker MAIN release pipeline for woodpecker-cli.
+#
+# Unlike emby-processor (web app hosted on a server), woodpecker-cli's final
+# output is a GitHub Release of cross-compiled binaries. This replaces the
+# previous .github/workflows/release.yml.
+#
+# Trigger: tag push (v*). Builds linux/darwin amd64+arm64, generates checksums,
+# publishes the GitHub Release with generated notes.
+#
+# NOTE on the build loop: Woodpecker 3.x made `matrix:` a top-level key that
+# spins up a SEPARATE workflow (separate workspace) per combination, so matrix
+# siblings do not share a `dist/`. To checksum all four binaries together we
+# therefore build them in a single step / single workspace with a small loop.
+
+when:
+  - event: tag
+    ref: [refs/tags/v*]
+
+steps:
+  build:
+    image: golang:1.26
+    commands:
+      - mkdir -p dist
+      - |
+        set -e
+        for GOOS in linux darwin; do
+          for GOARCH in amd64 arm64; do
+            echo "building ${GOOS}/${GOARCH}"
+            GOOS=$GOOS GOARCH=$GOARCH CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/jaaacki/woodpecker-cli/internal/commands.versionString=$CI_COMMIT_TAG" -o "dist/wpci-$GOOS-$GOARCH" ./cmd/wpci
+          done
+        done
+
+  checksums:
+    image: alpine:3.20
+    depends_on: [build]
+    commands:
+      - cd dist && sha256sum wpci-* > checksums.txt
+
+  release:
+    image: alpine:3.20
+    environment:
+      GH_TOKEN:
+        from_secret: github_token
+    depends_on: [checksums]
+    commands:
+      - apk add --no-cache github-cli
+      - gh release create $CI_COMMIT_TAG dist/* --title "$CI_COMMIT_TAG" --generate-notes
