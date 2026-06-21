@@ -1,0 +1,22 @@
+# Local Woodpecker PR validation for woodpecker-cli.
+#
+# Intentionally lightweight: fmt, vet, build, unit tests in a throwaway golang
+# container. No Docker socket, no privileged mounts, no deploys, no release
+# publishing. Mirrors emby-processor's PR tier, adapted for a Go CLI.
+#
+# PRs target the integration branch `dev`. `main` is allowed as a fallback so
+# direct hotfix PRs still get checked.
+
+when:
+  - event: pull_request
+    branch: [dev, main]
+
+steps:
+  go-checks:
+    image: golang:1.26
+    commands:
+      - go mod download
+      - test -z "$(gofmt -l .)" || (gofmt -d . && exit 1)
+      - go vet ./...
+      - go build ./...
+      - go test ./...
