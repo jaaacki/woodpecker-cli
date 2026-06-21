@@ -19,7 +19,6 @@ func TestNewContextFromCmd(t *testing.T) {
 }
 
 func TestVersionCommand(t *testing.T) {
-	SetVersion("0.2.0-test")
 	cmd := NewVersionCommand()
 	// Verify it can be invoked without arguments.
 	if err := cmd.RunE(cmd, nil); err != nil {
