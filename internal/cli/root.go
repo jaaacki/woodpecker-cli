@@ -91,11 +91,19 @@ func addAliasCommands(root *cobra.Command) {
 		registered[alias] = true
 	}
 	for _, alias := range config.EnvAccounts() {
-		if registered[alias] {
-			continue
+		// The env suffix maps non-alphanumerics to '_', so an alias like
+		// "home-syno" is discovered from WPCI_HOME_SYNO_SERVER as "home_syno".
+		// Register both the underscore form and the hyphen form so the user can
+		// type either. ResolveAccount keys env vars off the typed name's suffix,
+		// so both forms resolve to the same account.
+		forms := []string{alias, strings.ReplaceAll(alias, "_", "-")}
+		for _, f := range forms {
+			if registered[f] {
+				continue
+			}
+			registerAliasCommand(root, f, fmt.Sprintf("Account %s (env)", f))
+			registered[f] = true
 		}
-		registerAliasCommand(root, alias, fmt.Sprintf("Account %s (env)", alias))
-		registered[alias] = true
 	}
 }
 
