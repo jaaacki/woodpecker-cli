@@ -3,4 +3,5 @@ dist/
 build/
 coverage/
 *.log
-
+/wpci
+*.exe
