@@ -2,6 +2,7 @@ package client
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,7 +32,8 @@ func (c *Client) ResolveRepo(fullName string) (api.Repo, error) {
 		return repo, nil
 	}
 
-	if apiErr, ok := err.(api.APIError); ok && (apiErr.NotFound() || apiErr.BadRequest()) {
+	var apiErr api.APIError
+	if errors.As(err, &apiErr) && (apiErr.NotFound() || apiErr.BadRequest()) {
 		return c.findRepoByScan(fullName)
 	}
 	return repo, err

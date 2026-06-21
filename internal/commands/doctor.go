@@ -24,6 +24,7 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 			}
 			if alias == "" {
 				ctx.Error("doctor requires an account alias", output.ExitUsage)
+				return nil
 			}
 
 			c, err := client.New(alias, ctx)
@@ -33,6 +34,7 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 					code = output.ExitAPI
 				}
 				ctx.Error(err.Error(), code)
+				return nil
 			}
 
 			var version api.Version

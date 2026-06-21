@@ -3,6 +3,7 @@ package client
 import (
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -125,11 +126,9 @@ func (c *Client) Do(req *http.Request) (*http.Response, []byte, error) {
 	return resp, b, nil
 }
 
-// GetJSON fetches and unmarshals JSON from a URL.
+// GetJSON fetches and unmarshals JSON from a URL, ignoring any raw-output flag.
+// Use GetRaw when the caller only wants the raw response body.
 func (c *Client) GetJSON(urlStr string, target any) error {
-	if c.Out.Raw {
-		return c.GetRaw(urlStr)
-	}
 	req, err := c.Request(http.MethodGet, urlStr, nil)
 	if err != nil {
 		return err
@@ -144,22 +143,18 @@ func (c *Client) GetJSON(urlStr string, target any) error {
 	return nil
 }
 
-// GetRaw prints the raw upstream response and exits successfully.
-func (c *Client) GetRaw(urlStr string) error {
+// GetRaw prints the raw upstream response body to the configured output.
+func (c *Client) GetRaw(urlStr string) ([]byte, error) {
 	req, err := c.Request(http.MethodGet, urlStr, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, b, err := c.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c.Out.RawBytes(b)
-	if c.Out.Raw {
-		// raw mode does not envelope; exit after printing.
-		return nil
-	}
-	return nil
+	return b, nil
 }
 
 // GetPage fetches a page of a list endpoint.
@@ -206,15 +201,17 @@ func ExitForError(err error) int {
 	if err == nil {
 		return output.ExitSuccess
 	}
-	apiErr, ok := err.(api.APIError)
-	if ok {
+	var repoErr api.RepoNotFoundError
+	if errors.As(err, &repoErr) {
+		return output.ExitAPI
+	}
+	var apiErr api.APIError
+	if errors.As(err, &apiErr) {
 		switch {
 		case apiErr.Unauthorized():
 			return output.ExitAuth
 		case apiErr.Forbidden():
 			return output.ExitAuth
-		case apiErr.NotFound():
-			return output.ExitAPI
 		default:
 			return output.ExitAPI
 		}

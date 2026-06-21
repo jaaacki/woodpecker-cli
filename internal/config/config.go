@@ -28,8 +28,27 @@ const DefaultAuth = "bearer-token"
 // DefaultTimeoutSeconds is the HTTP client timeout.
 const DefaultTimeoutSeconds = 30
 
+var configDirOverride string
+
+// SetConfigDir overrides the configuration directory. Used by tests.
+func SetConfigDir(dir string) error {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	configDirOverride = dir
+	return nil
+}
+
+// ResetConfigDir clears the override.
+func ResetConfigDir() {
+	configDirOverride = ""
+}
+
 // Dir returns the base configuration directory.
 func Dir() string {
+	if configDirOverride != "" {
+		return configDirOverride
+	}
 	base := os.Getenv("XDG_CONFIG_HOME")
 	if base == "" {
 		home, err := os.UserHomeDir()

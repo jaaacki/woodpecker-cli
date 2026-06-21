@@ -12,15 +12,15 @@ import (
 // Exit codes mirror the PDR. The full table includes safety (6), but this
 // read-only phase only needs 0-5.
 const (
-	ExitSuccess    = 0
-	ExitRuntime    = 1
-	ExitUsage      = 2
-	ExitConfig     = 3
-	ExitAuth       = 4
-	ExitAPI        = 5
-	ExitSafety     = 6
-	ExitWriteGate  = 6 // alias for clarity
-	ExitCancel     = 1 // user cancelled confirmation
+	ExitSuccess   = 0
+	ExitRuntime   = 1
+	ExitUsage     = 2
+	ExitConfig    = 3
+	ExitAuth      = 4
+	ExitAPI       = 5
+	ExitSafety    = 6
+	ExitWriteGate = 6 // alias for clarity
+	ExitCancel    = 1 // user cancelled confirmation
 )
 
 // Context carries output preferences down a command invocation.
@@ -94,7 +94,9 @@ func (c Context) RawBytes(b []byte) {
 		return
 	}
 	if _, err := c.Out.Write(b); err == nil && len(b) > 0 && b[len(b)-1] != '\n' {
-		_ = os.Stdout.Sync()
+		if syncer, ok := c.Out.(interface{ Sync() error }); ok {
+			_ = syncer.Sync()
+		}
 	}
 }
 
@@ -116,26 +118,35 @@ func (c Context) JSONError(kind, message string, code int) {
 // Error prints a human or JSON error and exits.
 func (c Context) Error(message string, code int) {
 	if c.JSON {
-		var kind string
-		switch code {
-		case ExitUsage:
-			kind = "usage_error"
-		case ExitConfig:
-			kind = "config_error"
-		case ExitAuth:
-			kind = "auth_error"
-		case ExitAPI:
-			kind = "api_error"
-		case ExitSafety:
-			kind = "safety_error"
-		default:
-			kind = "runtime_error"
-		}
+		kind := errorKind(code)
 		c.JSONError(kind, message, code)
 		return
 	}
 	fmt.Fprintln(c.Err, "Error:", message)
 	os.Exit(code)
+}
+
+// Errorf formats and prints an error message, then exits.
+func (c Context) Errorf(format string, a ...any) {
+	c.Error(fmt.Sprintf(format, a...), ExitRuntime)
+}
+
+// errorKind maps an exit code to a stable JSON error kind.
+func errorKind(code int) string {
+	switch code {
+	case ExitUsage:
+		return "usage_error"
+	case ExitConfig:
+		return "config_error"
+	case ExitAuth:
+		return "auth_error"
+	case ExitAPI:
+		return "api_error"
+	case ExitSafety:
+		return "safety_error"
+	default:
+		return "runtime_error"
+	}
 }
 
 // Fatal is a convenience alias for Error with a runtime exit code.
@@ -145,7 +156,10 @@ func (c Context) Fatal(message string) {
 
 // JSONString returns a compact JSON representation of v.
 func JSONString(v any) string {
-	b, _ := json.MarshalIndent(v, "", "  ")
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("{\"error\":\"marshal failed: %s\"}", err)
+	}
 	return string(b)
 }
 

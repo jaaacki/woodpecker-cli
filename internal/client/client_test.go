@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -72,5 +73,89 @@ func TestExitForError(t *testing.T) {
 	}
 	if got := ExitForError(api.APIError{StatusCode: 500}); got != output.ExitAPI {
 		t.Fatalf("expected api exit code, got %d", got)
+	}
+	if got := ExitForError(api.RepoNotFoundError{FullName: "owner/repo"}); got != output.ExitAPI {
+		t.Fatalf("expected api exit code for repo not found, got %d", got)
+	}
+}
+
+func TestResolveRepo(t *testing.T) {
+	var lookupHit bool
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/repos/lookup/owner/repo":
+			lookupHit = true
+			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case "/api/repos":
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	acct := config.Account{Server: ts.URL, APIBase: "/api", TimeoutSeconds: 30}
+	c := NewWithToken(acct, "token", output.NewContext())
+	repo, err := c.ResolveRepo("owner/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.ID != 42 {
+		t.Fatalf("expected repo id 42, got %d", repo.ID)
+	}
+	if !lookupHit {
+		t.Fatal("expected lookup endpoint to be used")
+	}
+}
+
+func TestResolveRepoFallback(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/repos/lookup/owner/repo":
+			http.Error(w, "not found", http.StatusNotFound)
+		case "/api/repos":
+			_, _ = w.Write([]byte(`[
+				{"id": 1, "owner": "other", "name": "other", "full_name": "other/other"},
+				{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}
+			]`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	acct := config.Account{Server: ts.URL, APIBase: "/api", TimeoutSeconds: 30}
+	c := NewWithToken(acct, "token", output.NewContext())
+	repo, err := c.ResolveRepo("owner/repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repo.ID != 42 {
+		t.Fatalf("expected repo id 42, got %d", repo.ID)
+	}
+}
+
+func TestResolveRepoNotFound(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/repos/lookup/owner/repo":
+			http.Error(w, "not found", http.StatusNotFound)
+		case "/api/repos":
+			_, _ = w.Write([]byte(`[]`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	acct := config.Account{Server: ts.URL, APIBase: "/api", TimeoutSeconds: 30}
+	c := NewWithToken(acct, "token", output.NewContext())
+	_, err := c.ResolveRepo("owner/repo")
+	var repoErr api.RepoNotFoundError
+	if !errors.As(err, &repoErr) {
+		t.Fatalf("expected RepoNotFoundError, got %T: %v", err, err)
 	}
 }
