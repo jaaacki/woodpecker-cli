@@ -7,8 +7,8 @@ wrappers. Those wrappers are useful, but they drift, expose only small slices of
 the API, and are awkward for AI agents that need predictable commands and JSON
 output.
 
-`wpci` should be a neutral client library and CLI that can talk to any configured
-Woodpecker endpoint by account alias.
+`wpci` should be a neutral, unofficial client library and CLI that can talk to
+any configured Woodpecker endpoint by account alias.
 
 ## User Ask
 
@@ -169,6 +169,9 @@ Agent-friendly errors should be structured:
 
 ## Agent-Native Lessons
 
+CLI-Anything by HKUDS is credited as the source of several agent-native CLI
+design prompts considered here: https://github.com/HKUDS/CLI-Anything
+
 Useful patterns from CLI-Anything:
 
 - Every command must have standard `--help` discoverability.
@@ -191,6 +194,7 @@ Patterns not needed for the first version:
 
 Use the upstream OpenAPI specification as the coverage baseline:
 
+- Woodpecker CI: https://woodpecker-ci.org/
 - API reference: https://woodpecker-ci.org/api
 - OpenAPI YAML: https://woodpecker-ci.org/redocusaurus/plugin-redoc-0.yaml
 - Upstream repository: https://github.com/woodpecker-ci/woodpecker
@@ -236,3 +240,17 @@ irm https://raw.githubusercontent.com/jaaacki/woodpecker-cli/main/install.ps1 | 
 
 The installer should fetch releases, not execute arbitrary source code as the
 application runtime.
+
+No release artifacts exist yet. Public install commands must be presented as the
+target release flow until the first release is published.
+
+## Credits and Attribution
+
+- Woodpecker CI and its maintainers provide the upstream CI system, API, CLI
+  vocabulary, API documentation, and OpenAPI specification this project targets:
+  https://github.com/woodpecker-ci/woodpecker
+- CLI-Anything by HKUDS influenced the agent-native CLI requirements,
+  especially standard help output, JSON-first automation, subprocess tests, and
+  deterministic setup: https://github.com/HKUDS/CLI-Anything
+- This project is an independent, unofficial implementation. Do not imply
+  affiliation with Woodpecker CI or HKUDS/CLI-Anything.

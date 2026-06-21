@@ -2,9 +2,10 @@
 
 An AI-friendly, multi-account Woodpecker CI API client and CLI.
 
-This project is not a replacement for Woodpecker CI. It is a neutral client
-library and command-line wrapper for working with one or more Woodpecker
-servers from humans, scripts, and AI agents.
+This is an unofficial project. It is not affiliated with, endorsed by, or a
+replacement for Woodpecker CI. It is a neutral client library and command-line
+wrapper for working with one or more Woodpecker servers from humans, scripts,
+and AI agents.
 
 Target command shape:
 
@@ -41,6 +42,9 @@ wpci home doctor --json
 - No one-off wrapper per Woodpecker server.
 
 ## Planned Install Flow
+
+No release artifacts exist yet. The install commands below describe the target
+release flow and will become usable after the first release is published.
 
 Unix-like systems:
 
@@ -127,7 +131,17 @@ wpci <alias> queue ...
 - Swagger generation docs:
   https://woodpecker-ci.org/docs/next/development/swagger
 
+## Credits
+
+- Woodpecker CI and its maintainers provide the upstream CI system, API, CLI
+  vocabulary, API documentation, and OpenAPI specification this project targets:
+  https://github.com/woodpecker-ci/woodpecker
+- CLI-Anything by HKUDS influenced the agent-native CLI requirements,
+  especially consistent help output, JSON-first automation, subprocess testing,
+  and deterministic setup: https://github.com/HKUDS/CLI-Anything
+- This repository is an independent implementation and should preserve upstream
+  attribution anywhere Woodpecker or CLI-Anything design ideas are referenced.
+
 ## Status
 
 Design/scaffold phase. See `docs/PDR.md` and `docs/ROADMAP.md`.
-
