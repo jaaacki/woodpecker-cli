@@ -49,12 +49,12 @@ func accountTokenCommand() *cobra.Command {
 
 func accountAddCommand() *cobra.Command {
 	var (
-		server       string
-		apiBase      string
-		tlsSkip      bool
-		timeout      int
-		token        string
-		tokenStdin   bool
+		server     string
+		apiBase    string
+		tlsSkip    bool
+		timeout    int
+		token      string
+		tokenStdin bool
 	)
 
 	cmd := &cobra.Command{
@@ -66,6 +66,7 @@ func accountAddCommand() *cobra.Command {
 			ctx := NewContextFromCmd(cmd)
 			if server == "" {
 				ctx.Error("--server is required", output.ExitUsage)
+				return nil
 			}
 			acct := config.Account{
 				Alias:          alias,
@@ -77,9 +78,11 @@ func accountAddCommand() *cobra.Command {
 			}
 			if err := config.EnsureConfigDirs(); err != nil {
 				ctx.Error("creating config directories: "+err.Error(), output.ExitConfig)
+				return nil
 			}
 			if err := acct.Save(); err != nil {
 				ctx.Error("saving account: "+err.Error(), output.ExitConfig)
+				return nil
 			}
 
 			if tokenStdin {
@@ -87,12 +90,14 @@ func accountAddCommand() *cobra.Command {
 				line, err := reader.ReadString('\n')
 				if err != nil {
 					ctx.Error("reading token from stdin: "+err.Error(), output.ExitConfig)
+					return nil
 				}
 				token = strings.TrimSpace(line)
 			}
 			if token != "" {
 				if err := auth.NewToken(alias).Save(token); err != nil {
 					ctx.Error("saving token: "+err.Error(), output.ExitConfig)
+					return nil
 				}
 			}
 
@@ -121,6 +126,7 @@ func accountListCommand() *cobra.Command {
 			aliases, err := config.ListAccounts()
 			if err != nil {
 				ctx.Error("listing accounts: "+err.Error(), output.ExitConfig)
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(aliases)
@@ -155,6 +161,7 @@ func accountShowCommand() *cobra.Command {
 			acct, err := config.LoadAccount(args[0])
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(acct.SanitizeForDisplay())
@@ -177,6 +184,7 @@ func accountRemoveCommand() *cobra.Command {
 			alias := args[0]
 			if err := config.RemoveAccount(alias); err != nil && !os.IsNotExist(err) {
 				ctx.Error("removing account: "+err.Error(), output.ExitConfig)
+				return nil
 			}
 			_ = auth.NewToken(alias).Remove()
 			ctx.Println("Account", alias, "removed.")
@@ -197,11 +205,13 @@ func accountTestCommand() *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			var version api.Version
 			if err := c.GetJSON(c.URL("version"), &version); err != nil {
 				code := client.ExitForError(err)
 				ctx.Error(err.Error(), code)
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(map[string]any{
@@ -235,16 +245,24 @@ func accountTokenSetCommand() *cobra.Command {
 				line, err := reader.ReadString('\n')
 				if err != nil {
 					ctx.Error("reading token: "+err.Error(), output.ExitConfig)
+					return nil
 				}
 				value = strings.TrimSpace(line)
 			} else {
 				ctx.Error("provide token as argument or --stdin", output.ExitUsage)
+				return nil
+			}
+			if value == "" {
+				ctx.Error("token cannot be empty", output.ExitUsage)
+				return nil
 			}
 			if _, err := config.LoadAccount(alias); err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			if err := auth.NewToken(alias).Save(value); err != nil {
 				ctx.Error("saving token: "+err.Error(), output.ExitConfig)
+				return nil
 			}
 			ctx.Println("Token saved for", alias)
 			return nil
@@ -285,6 +303,7 @@ func accountTokenRemoveCommand() *cobra.Command {
 			alias := args[0]
 			if err := auth.NewToken(alias).Remove(); err != nil && !os.IsNotExist(err) {
 				ctx.Error("removing token: "+err.Error(), output.ExitConfig)
+				return nil
 			}
 			ctx.Println("Token removed for", alias)
 			return nil

@@ -22,6 +22,7 @@ func newPipelineCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	cmd.AddCommand(newPipelineShowCommand(alias, newCtx))
 	cmd.AddCommand(newPipelineConfigCommand(alias, newCtx))
 	cmd.AddCommand(newPipelineMetadataCommand(alias, newCtx))
+	cmd.AddCommand(newPipelinePsCommand(alias, newCtx))
 	cmd.AddCommand(newPipelineLogCommand(alias, newCtx))
 	return cmd
 }
@@ -49,6 +50,7 @@ func newPipelineListCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repoID, err := resolveRepoID(c, args[0], ctx)
 			if err != nil {
@@ -63,6 +65,7 @@ func newPipelineListCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			var pipelines []api.Pipeline
 			if err := c.GetJSON(urlStr, &pipelines); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(pipelines)
@@ -102,6 +105,7 @@ func newPipelineLastCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repoID, err := resolveRepoID(c, args[0], ctx)
 			if err != nil {
@@ -116,6 +120,7 @@ func newPipelineLastCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			var pipelines []api.Pipeline
 			if err := c.GetJSON(urlStr, &pipelines); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if len(pipelines) == 0 {
 				ctx.Println("No pipelines found.")
@@ -145,6 +150,7 @@ func newPipelineShowCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repoID, err := resolveRepoID(c, args[0], ctx)
 			if err != nil {
@@ -160,6 +166,7 @@ func newPipelineShowCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10))
 			if err := c.GetJSON(urlStr, &pipeline); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(pipeline)
@@ -182,6 +189,7 @@ func newPipelineConfigCommand(alias string, newCtx ContextFactory) *cobra.Comman
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repoID, err := resolveRepoID(c, args[0], ctx)
 			if err != nil {
@@ -197,6 +205,7 @@ func newPipelineConfigCommand(alias string, newCtx ContextFactory) *cobra.Comman
 			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "config")
 			if err := c.GetJSON(urlStr, &cfg); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.Raw {
 				ctx.RawBytes([]byte(cfg.Data))
@@ -223,6 +232,7 @@ func newPipelineMetadataCommand(alias string, newCtx ContextFactory) *cobra.Comm
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repoID, err := resolveRepoID(c, args[0], ctx)
 			if err != nil {
@@ -238,12 +248,67 @@ func newPipelineMetadataCommand(alias string, newCtx ContextFactory) *cobra.Comm
 			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "metadata")
 			if err := c.GetJSON(urlStr, &meta); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(meta)
 				return nil
 			}
 			ctx.Println(output.JSONString(meta))
+			return nil
+		},
+		SilenceUsage: true,
+	}
+}
+
+func newPipelinePsCommand(alias string, newCtx ContextFactory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "ps <owner/repo> <number>",
+		Short: "List workflow steps for a pipeline",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := newCtx()
+			c, err := client.New(alias, ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
+			}
+			repoID, err := resolveRepoID(c, args[0], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			number, err := parsePipelineNumber(args[1], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitUsage)
+				return nil
+			}
+			var steps []api.Step
+			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "workflows")
+			if err := c.GetJSON(urlStr, &steps); err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			if ctx.JSON {
+				ctx.Data(steps)
+				return nil
+			}
+			if len(steps) == 0 {
+				ctx.Println("No steps found.")
+				return nil
+			}
+			rows := make([][]string, 0, len(steps))
+			for _, s := range steps {
+				rows = append(rows, []string{
+					fmt.Sprintf("%d", s.ID),
+					s.Name,
+					s.State,
+					client.FormatTime(s.Started),
+					client.FormatTime(s.Stopped),
+					fmt.Sprintf("%d", s.ExitCode),
+				})
+			}
+			ctx.PrintTable([]string{"ID", "NAME", "STATE", "STARTED", "STOPPED", "EXIT"}, rows)
 			return nil
 		},
 		SilenceUsage: true,
@@ -269,6 +334,7 @@ func newPipelineLogShowCommand(alias string, newCtx ContextFactory) *cobra.Comma
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repoID, err := resolveRepoID(c, args[0], ctx)
 			if err != nil {
@@ -282,11 +348,11 @@ func newPipelineLogShowCommand(alias string, newCtx ContextFactory) *cobra.Comma
 			}
 			stepName := args[2]
 
-			// List steps/workflows for the pipeline.
 			var steps []api.Step
 			stepsURL := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "workflows")
 			if err := c.GetJSON(stepsURL, &steps); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			var stepID int64 = -1
 			for _, s := range steps {
@@ -297,18 +363,23 @@ func newPipelineLogShowCommand(alias string, newCtx ContextFactory) *cobra.Comma
 			}
 			if stepID < 0 {
 				ctx.Error("step not found: "+stepName, output.ExitUsage)
+				return nil
 			}
 
 			var logs []api.Log
 			logsURL := c.URL("repos", strconv.FormatInt(repoID, 10), "logs", strconv.FormatInt(stepID, 10))
 			if err := c.GetJSON(logsURL, &logs); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(logs)
 				return nil
 			}
 			if ctx.Raw {
+				for _, line := range logs {
+					ctx.RawBytes(line.Data)
+				}
 				return nil
 			}
 			for _, line := range logs {

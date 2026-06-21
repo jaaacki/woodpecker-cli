@@ -31,10 +31,12 @@ func newRepoListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			var repos []api.Repo
 			if err := c.GetJSON(c.URL("repos"), &repos); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(repos)
@@ -71,10 +73,12 @@ func newRepoShowCommand(alias string, newCtx ContextFactory) *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repo, err := c.ResolveRepo(args[0])
 			if err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(repo)
@@ -97,12 +101,14 @@ func newRepoSearchCommand(alias string, newCtx ContextFactory) *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			query := args[0]
 			urlStr := client.SetQuery(c.URL("repos"), map[string][]string{"search": {query}})
 			var repos []api.Repo
 			if err := c.GetJSON(urlStr, &repos); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(repos)
@@ -133,10 +139,12 @@ func newRepoLookupCommand(alias string, newCtx ContextFactory) *cobra.Command {
 			c, err := client.New(alias, ctx)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
 			}
 			repo, err := c.ResolveRepo(args[0])
 			if err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
 			}
 			if ctx.JSON {
 				ctx.Data(repo)
