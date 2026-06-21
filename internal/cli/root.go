@@ -17,11 +17,13 @@ var (
 	rawFlag     bool
 	writeFlag   bool
 	confirmFlag string
-	versionFlag bool
 )
 
 // Execute runs the root command.
 func Execute() error {
+	if dir := os.Getenv("WPCI_CONFIG_DIR"); dir != "" {
+		_ = config.SetConfigDir(dir)
+	}
 	root := newRootCommand()
 	addAliasCommands(root)
 	return root.Execute()
@@ -50,10 +52,6 @@ Usage:
   wpci <alias> pipeline last   Show the latest pipeline`,
 		Version: commands.CompiledVersion(),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if versionFlag {
-				fmt.Println(commands.CompiledVersion())
-				return nil
-			}
 			_ = cmd.Help()
 			return nil
 		},
@@ -64,7 +62,6 @@ Usage:
 	root.PersistentFlags().BoolVar(&rawFlag, "raw", false, "Output raw upstream response")
 	root.PersistentFlags().BoolVar(&writeFlag, "write", false, "Enable write operations")
 	root.PersistentFlags().StringVar(&confirmFlag, "confirm", "", "Confirm destructive operation target")
-	root.Flags().BoolVar(&versionFlag, "version", false, "Print version")
 
 	root.AddCommand(commands.NewAccountCommand())
 	root.AddCommand(commands.NewVersionCommand())
