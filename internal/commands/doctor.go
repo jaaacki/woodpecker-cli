@@ -38,7 +38,12 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 			}
 
 			var version api.Version
+			// /api/version is best-effort: Woodpecker 3.x dropped it (the route
+			// returns the SPA), so a version probe failure is reported as
+			// "unavailable" but does not fail the health check. Auth is verified
+			// via /user below.
 			versionErr := c.GetJSON(c.URL("version"), &version)
+			versionUnavailable := versionErr != nil
 
 			var user api.User
 			userErr := c.GetJSON(c.URL("user"), &user)
@@ -47,9 +52,10 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 				"alias":  alias,
 				"server": c.Account.Server,
 				"version": map[string]any{
-					"ok":    versionErr == nil,
-					"value": version,
-					"error": errString(versionErr),
+					"ok":          versionErr == nil,
+					"value":       version,
+					"unavailable": versionUnavailable,
+					"error":       errString(versionErr),
 				},
 				"user": map[string]any{
 					"ok":    userErr == nil,
@@ -58,18 +64,13 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 				},
 			}
 
-			if versionErr != nil || userErr != nil {
+			if userErr != nil {
 				if ctx.JSON {
 					ctx.Data(result)
 					return nil
 				}
 				ctx.Println("Account", alias, "has problems")
-				if versionErr != nil {
-					ctx.Println("  /version:", versionErr.Error())
-				}
-				if userErr != nil {
-					ctx.Println("  /user:", userErr.Error())
-				}
+				ctx.Println("  /user:", userErr.Error())
 				return nil
 			}
 
@@ -79,7 +80,11 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 			}
 			ctx.Println("Account", alias, "is healthy")
 			ctx.Println("  Server:", c.Account.Server)
-			ctx.Println("  Version:", version.Source, version.Version)
+			if versionUnavailable {
+				ctx.Println("  Version: unavailable (Woodpecker 3.x exposes no /version endpoint)")
+			} else {
+				ctx.Println("  Version:", version.Source, version.Version)
+			}
 			ctx.Println("  User:", user.Login, user.Email)
 			return nil
 		},

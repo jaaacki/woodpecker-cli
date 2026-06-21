@@ -2,62 +2,86 @@ package api
 
 import "fmt"
 
+// Trusted are the per-dimension trust flags Woodpecker 3.x attaches to a repo.
+// In 3.x `trusted` is an object, not a bool.
+type Trusted struct {
+	Network  bool `json:"network,omitempty"`
+	Volumes  bool `json:"volumes,omitempty"`
+	Security bool `json:"security,omitempty"`
+}
+
 // Repo is the minimal Woodpecker repository shape.
 type Repo struct {
-	ID               int64  `json:"id"`
-	ForgeRemoteID    string `json:"forge_remote_id,omitempty"`
-	Owner            string `json:"owner"`
-	Name             string `json:"name"`
-	FullName         string `json:"full_name"`
-	Avatar           string `json:"avatar_url,omitempty"`
-	URL              string `json:"url,omitempty"`
-	SCM              string `json:"scm,omitempty"`
-	HTTPURL          string `json:"clone_url,omitempty"`
-	SSHURL           string `json:"ssh_url,omitempty"`
-	DefaultBranch    string `json:"default_branch,omitempty"`
-	Timeout          int64  `json:"timeout,omitempty"`
-	Visibility       string `json:"visibility,omitempty"`
-	Private          bool   `json:"private,omitempty"`
-	Trusted          bool   `json:"trusted,omitempty"`
-	Protected        bool   `json:"protected,omitempty"`
-	Active           bool   `json:"active,omitempty"`
-	AllowPull        bool   `json:"allow_pull_requests,omitempty"`
-	CancelPrev       bool   `json:"cancel_previous_pipeline_events,omitempty"`
-	NetrcOnlyTrusted bool   `json:"netrc_only_trusted,omitempty"`
-	OrgID            int64  `json:"org_id,omitempty"`
+	ID               int64    `json:"id"`
+	ForgeRemoteID    string   `json:"forge_remote_id,omitempty"`
+	Owner            string   `json:"owner"`
+	Name             string   `json:"name"`
+	FullName         string   `json:"full_name"`
+	Avatar           string   `json:"avatar_url,omitempty"`
+	URL              string   `json:"url,omitempty"`
+	SCM              string   `json:"scm,omitempty"`
+	HTTPURL          string   `json:"clone_url,omitempty"`
+	SSHURL           string   `json:"ssh_url,omitempty"`
+	DefaultBranch    string   `json:"default_branch,omitempty"`
+	Timeout          int64    `json:"timeout,omitempty"`
+	Visibility       string   `json:"visibility,omitempty"`
+	Private          bool     `json:"private,omitempty"`
+	Trusted          Trusted  `json:"trusted,omitempty"`
+	Protected        bool     `json:"protected,omitempty"`
+	Active           bool     `json:"active,omitempty"`
+	AllowPull        bool     `json:"allow_pull_requests,omitempty"`
+	CancelPrev       []string `json:"cancel_previous_pipeline_events,omitempty"`
+	NetrcOnlyTrusted bool     `json:"netrc_only_trusted,omitempty"`
+	OrgID            int64    `json:"org_id,omitempty"`
 }
 
 // Pipeline is the minimal Woodpecker pipeline shape.
 type Pipeline struct {
-	ID           int64    `json:"id"`
-	RepoID       int64    `json:"repo_id"`
-	Number       int64    `json:"number"`
-	Parent       int64    `json:"parent,omitempty"`
-	Event        string   `json:"event"`
-	Status       string   `json:"status"`
-	Enqueued     int64    `json:"enqueued_at,omitempty"`
-	Created      int64    `json:"created_at,omitempty"`
-	Started      int64    `json:"started_at,omitempty"`
-	Finished     int64    `json:"finished_at,omitempty"`
-	DeployTo     string   `json:"deploy_to,omitempty"`
-	Commit       string   `json:"commit,omitempty"`
-	Branch       string   `json:"branch,omitempty"`
-	Ref          string   `json:"ref,omitempty"`
-	RefSpec      string   `json:"refspec,omitempty"`
-	Remote       string   `json:"remote,omitempty"`
-	Title        string   `json:"title,omitempty"`
-	Message      string   `json:"message,omitempty"`
-	Timestamp    int64    `json:"timestamp,omitempty"`
-	Sender       string   `json:"sender,omitempty"`
-	Author       string   `json:"author,omitempty"`
-	Email        string   `json:"email,omitempty"`
-	LinkURL      string   `json:"link_url,omitempty"`
-	ChangedFiles []string `json:"changed_files,omitempty"`
+	ID           int64      `json:"id"`
+	RepoID       int64      `json:"repo_id"`
+	Number       int64      `json:"number"`
+	Parent       int64      `json:"parent,omitempty"`
+	Event        string     `json:"event"`
+	Status       string     `json:"status"`
+	Enqueued     int64      `json:"enqueued_at,omitempty"`
+	Created      int64      `json:"created,omitempty"`
+	Started      int64      `json:"started,omitempty"`
+	Finished     int64      `json:"finished,omitempty"`
+	DeployTo     string     `json:"deploy_to,omitempty"`
+	Commit       string     `json:"commit,omitempty"`
+	Branch       string     `json:"branch,omitempty"`
+	Ref          string     `json:"ref,omitempty"`
+	RefSpec      string     `json:"refspec,omitempty"`
+	Remote       string     `json:"remote,omitempty"`
+	Title        string     `json:"title,omitempty"`
+	Message      string     `json:"message,omitempty"`
+	Timestamp    int64      `json:"timestamp,omitempty"`
+	Sender       string     `json:"sender,omitempty"`
+	Author       string     `json:"author,omitempty"`
+	Email        string     `json:"email,omitempty"`
+	LinkURL      string     `json:"link_url,omitempty"`
+	ChangedFiles []string   `json:"changed_files,omitempty"`
+	Workflows    []Workflow `json:"workflows,omitempty"`
 }
 
-// PipelineConfig is the compiled pipeline YAML returned by the config endpoint.
+// Workflow is a top-level workflow in a pipeline. In Woodpecker 3.x a pipeline
+// embeds its workflows, and each workflow's Children are the individual steps.
+type Workflow struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name,omitempty"`
+	PID      int64  `json:"pid,omitempty"`
+	State    string `json:"state,omitempty"`
+	Started  int64  `json:"started,omitempty"`
+	Finished int64  `json:"finished,omitempty"`
+	Children []Step `json:"children,omitempty"`
+}
+
+// PipelineConfig is one compiled pipeline-config entry. The 3.x config endpoint
+// returns an array of these (one per workflow).
 type PipelineConfig struct {
 	Data string `json:"data"`
+	Hash string `json:"hash,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 // PipelineMetadata is the metadata associated with a pipeline.
@@ -84,7 +108,7 @@ type Log struct {
 	StepID int64  `json:"step_id"`
 	Time   int64  `json:"time"`
 	Line   int64  `json:"line"`
-	Type   string `json:"type,omitempty"`
+	Type   int    `json:"type,omitempty"`
 	Data   []byte `json:"data"`
 }
 

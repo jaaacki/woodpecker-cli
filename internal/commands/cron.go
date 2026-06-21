@@ -37,7 +37,7 @@ func newCronListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				return nil
 			}
 			var crons []api.Cron
-			urlStr := c.URL("repos", fmt.Sprintf("%d", repoID), "crons")
+			urlStr := c.URL("repos", fmt.Sprintf("%d", repoID), "cron")
 			if err := c.GetJSON(urlStr, &crons); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
