@@ -1,0 +1,223 @@
+package client
+
+import (
+	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/jaaacki/woodpecker-cli/internal/api"
+	"github.com/jaaacki/woodpecker-cli/internal/auth"
+	"github.com/jaaacki/woodpecker-cli/internal/config"
+	"github.com/jaaacki/woodpecker-cli/internal/output"
+)
+
+// Client is a configured Woodpecker API HTTP client.
+type Client struct {
+	Account    config.Account
+	Token      auth.Token
+	TokenValue string
+	HTTP       *http.Client
+	BaseURL    string
+	Out        output.Context
+}
+
+// New creates a Client from an account alias.
+func New(alias string, out output.Context) (*Client, error) {
+	acct, err := config.LoadAccount(alias)
+	if err != nil {
+		return nil, err
+	}
+	tok := auth.NewToken(alias)
+	value, err := tok.Load()
+	if err != nil {
+		return nil, err
+	}
+	return NewWithToken(acct, value, out), nil
+}
+
+// NewWithToken creates a Client with an explicit token.
+func NewWithToken(acct config.Account, token string, out output.Context) *Client {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: acct.TLSSkipVerify}
+
+	httpClient := &http.Client{
+		Transport: tr,
+		Timeout:   time.Duration(acct.TimeoutSeconds) * time.Second,
+	}
+	if acct.TimeoutSeconds <= 0 {
+		httpClient.Timeout = 30 * time.Second
+	}
+
+	base := acct.Server + acct.APIBase
+	return &Client{
+		Account:    acct,
+		Token:      auth.NewToken(acct.Alias),
+		TokenValue: token,
+		HTTP:       httpClient,
+		BaseURL:    strings.TrimRight(base, "/"),
+		Out:        out,
+	}
+}
+
+// URL builds an absolute API URL from path segments.
+func (c *Client) URL(parts ...string) string {
+	path := strings.Join(parts, "/")
+	path = strings.TrimLeft(path, "/")
+	return c.BaseURL + "/" + path
+}
+
+// SetQuery appends query parameters to a URL string.
+func SetQuery(rawURL string, params url.Values) string {
+	if len(params) == 0 {
+		return rawURL
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL + "?" + params.Encode()
+	}
+	u.RawQuery = params.Encode()
+	return u.String()
+}
+
+// Request builds a standard GET/POST/... request with bearer auth.
+func (c *Client) Request(method, urlStr string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequest(method, urlStr, body)
+	if err != nil {
+		return nil, err
+	}
+	value := c.TokenValue
+	if value == "" {
+		loaded, err := c.Token.Load()
+		if err != nil {
+			return nil, err
+		}
+		value = loaded
+	}
+	req.Header.Set("Authorization", "Bearer "+value)
+	req.Header.Set("User-Agent", config.UserAgent())
+	req.Header.Set("Accept", "application/json")
+	if body != nil && method != http.MethodGet && method != http.MethodHead {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return req, nil
+}
+
+// Do performs a request and returns the response or a normalized error.
+func (c *Client) Do(req *http.Request) (*http.Response, []byte, error) {
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, nil, fmt.Errorf("request failed: %w", err)
+	}
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reading response: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		return resp, b, api.APIError{StatusCode: resp.StatusCode, Message: string(b)}
+	}
+	return resp, b, nil
+}
+
+// GetJSON fetches and unmarshals JSON from a URL.
+func (c *Client) GetJSON(urlStr string, target any) error {
+	if c.Out.Raw {
+		return c.GetRaw(urlStr)
+	}
+	req, err := c.Request(http.MethodGet, urlStr, nil)
+	if err != nil {
+		return err
+	}
+	_, b, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(b, target); err != nil {
+		return fmt.Errorf("parsing JSON: %w", err)
+	}
+	return nil
+}
+
+// GetRaw prints the raw upstream response and exits successfully.
+func (c *Client) GetRaw(urlStr string) error {
+	req, err := c.Request(http.MethodGet, urlStr, nil)
+	if err != nil {
+		return err
+	}
+	_, b, err := c.Do(req)
+	if err != nil {
+		return err
+	}
+	c.Out.RawBytes(b)
+	if c.Out.Raw {
+		// raw mode does not envelope; exit after printing.
+		return nil
+	}
+	return nil
+}
+
+// GetPage fetches a page of a list endpoint.
+func (c *Client) GetPage(urlStr string, target any) error {
+	return c.GetJSON(urlStr, target)
+}
+
+// Body returns a response body with trailing newline when not in JSON mode.
+func Body(b []byte) string {
+	return strings.TrimSpace(string(b))
+}
+
+// FormatNumber converts an integer number to a string.
+func FormatNumber(n int64) string {
+	return strconv.FormatInt(n, 10)
+}
+
+// FormatBool converts a boolean to "yes"/"no".
+func FormatBool(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
+}
+
+// FormatOptional returns the value or "-" if empty.
+func FormatOptional(s string) string {
+	if s == "" {
+		return "-"
+	}
+	return s
+}
+
+// FormatTime converts a Unix timestamp (seconds) to a short local time string.
+func FormatTime(t int64) string {
+	if t == 0 {
+		return "-"
+	}
+	return time.Unix(t, 0).Format(time.RFC3339)
+}
+
+// ExitForError returns an appropriate exit code for an error.
+func ExitForError(err error) int {
+	if err == nil {
+		return output.ExitSuccess
+	}
+	apiErr, ok := err.(api.APIError)
+	if ok {
+		switch {
+		case apiErr.Unauthorized():
+			return output.ExitAuth
+		case apiErr.Forbidden():
+			return output.ExitAuth
+		case apiErr.NotFound():
+			return output.ExitAPI
+		default:
+			return output.ExitAPI
+		}
+	}
+	return output.ExitRuntime
+}
