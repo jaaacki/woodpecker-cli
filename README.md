@@ -80,6 +80,27 @@ wpci home doctor --json
 If `~/.local/bin` is not on your PATH the installer prints the `export PATH=…`
 line to add it. Windows uses `wpci account add home --server <url> --token-stdin`.
 
+### Shell-alias accounts (zero config)
+
+Skip `account add` entirely — define an account via env vars and shorten it with
+a shell alias. Convention: `WPCI_<ALIAS>_SERVER` and `WPCI_<ALIAS>_TOKEN`, alias
+uppercased with non-alphanumerics as `_`.
+
+```sh
+# ~/.zshrc
+export WPCI_HOME_SERVER=https://ci.example.com
+export WPCI_HOME_TOKEN=ghp_xxx
+alias wpci-home='wpci home'
+
+# then, anywhere:
+wpci-home repo ls                          # = wpci home repo ls
+wpci-home pipeline last jaaacki/woodpecker-cli --branch main
+```
+
+A stored account (from `account add`) wins; env fills in only when no account
+file exists. `wpci home doctor` validates the env-defined account the same way.
+
+
 
 ## Initial Command Surface
 
