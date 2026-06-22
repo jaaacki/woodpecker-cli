@@ -15,7 +15,7 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Validate account and token against the server",
-		Long:  "Calls /version and /user to verify connectivity, token validity, and account configuration.",
+		Long:  "Calls /user to verify connectivity, token validity, and account configuration. Includes /version metadata when the server exposes it.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := NewContextFromCmd(cmd)
 			alias := ""
@@ -37,26 +37,17 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 				return nil
 			}
 
-			var version api.Version
 			// /api/version is best-effort: Woodpecker 3.x dropped it (the route
-			// returns the SPA), so a version probe failure is reported as
-			// "unavailable" but does not fail the health check. Auth is verified
-			// via /user below.
-			versionErr := c.GetJSON(c.URL("version"), &version)
-			versionUnavailable := versionErr != nil
+			// returns the SPA). Auth/connectivity are verified via /user below.
+			version := probeVersion(c)
 
 			var user api.User
 			userErr := c.GetJSON(c.URL("user"), &user)
 
 			result := map[string]any{
-				"alias":  alias,
-				"server": c.Account.Server,
-				"version": map[string]any{
-					"ok":          versionErr == nil,
-					"value":       version,
-					"unavailable": versionUnavailable,
-					"error":       errString(versionErr),
-				},
+				"alias":   alias,
+				"server":  c.Account.Server,
+				"version": version,
 				"user": map[string]any{
 					"ok":    userErr == nil,
 					"value": user,
@@ -80,10 +71,10 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 			}
 			ctx.Println("Account", alias, "is healthy")
 			ctx.Println("  Server:", c.Account.Server)
-			if versionUnavailable {
-				ctx.Println("  Version: unavailable (Woodpecker 3.x exposes no /version endpoint)")
+			if !version.Available {
+				ctx.Println("  Version: unavailable (" + version.Note + ")")
 			} else {
-				ctx.Println("  Version:", version.Source, version.Version)
+				ctx.Println("  Version:", version.Value.Source, version.Value.Version)
 			}
 			ctx.Println("  User:", user.Login, user.Email)
 			return nil

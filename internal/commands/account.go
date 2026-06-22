@@ -220,21 +220,27 @@ func accountTestCommand() *cobra.Command {
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			var version api.Version
-			if err := c.GetJSON(c.URL("version"), &version); err != nil {
+			var user api.User
+			if err := c.GetJSON(c.URL("user"), &user); err != nil {
 				code := client.ExitForError(err)
 				ctx.Error(err.Error(), code)
 				return nil
 			}
+			version := probeVersion(c)
 			if ctx.JSON {
 				ctx.Data(map[string]any{
 					"alias":   alias,
 					"server":  c.Account.Server,
+					"user":    user,
 					"version": version,
 				})
 				return nil
 			}
-			ctx.Println("Account", alias, "OK -", version.Source, version.Version)
+			if version.Available {
+				ctx.Println("Account", alias, "OK -", version.Value.Source, version.Value.Version)
+			} else {
+				ctx.Println("Account", alias, "OK - version unavailable ("+version.Note+")")
+			}
 			return nil
 		},
 		SilenceUsage: true,

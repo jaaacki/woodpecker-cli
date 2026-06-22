@@ -177,7 +177,7 @@ wpci <alias> queue ...
 
 ## Status
 
-Usable and installable from releases (latest `v0.0.6`). Multi-account
+Usable and installable from releases (latest `v0.0.7`). Multi-account
 configuration and the core read-only API surface (repo, pipeline, org, agent,
 queue, cron, registry, secret listing, user) are implemented and covered by
 tests. Ships with a three-tier Woodpecker CI (PR / dev / release) and a one-line
