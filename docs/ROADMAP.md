@@ -37,14 +37,14 @@
 - Test installer behavior against a draft/test release before publishing install
   commands as stable.
 
-## Milestone 4: Controlled Writes
+## Milestone 4: Controlled Writes (done)
 
 - Add `--write` gate for mutating pipeline, repo, cron, secret, and registry
   commands.
 - Add `--confirm <target>` for destructive commands.
 - Add admin command coverage where the token has permission.
 
-## Milestone 5: API Parity Hardening
+## Milestone 5: API Parity Hardening (done)
 
 - Compare implemented commands against upstream OpenAPI.
 - Add compatibility probes for Woodpecker version/API differences.

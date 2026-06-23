@@ -1,6 +1,9 @@
 package api
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // Trusted are the per-dimension trust flags Woodpecker 3.x attaches to a repo.
 // In 3.x `trusted` is an object, not a bool.
@@ -249,6 +252,15 @@ type APIError struct {
 
 func (e APIError) Error() string {
 	return fmt.Sprintf("HTTP %d: %s", e.StatusCode, e.Message)
+}
+
+// AsAPIError unwraps an APIError from an error chain.
+func AsAPIError(err error) (APIError, bool) {
+	var apiErr APIError
+	if errors.As(err, &apiErr) {
+		return apiErr, true
+	}
+	return APIError{}, false
 }
 
 // BadRequest returns true for 4xx client errors.

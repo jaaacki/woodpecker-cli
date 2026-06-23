@@ -21,6 +21,9 @@ wpci home repo show jaaacki/emby-processor
 wpci home pipeline last jaaacki/emby-processor --branch main
 wpci lab pipeline log show sparkfn/media-butler 42 build
 wpci home doctor --json
+wpci home repo edit jaaacki/emby-processor --write --timeout 90
+wpci home pipeline run jaaacki/emby-processor --write --branch main
+wpci home repo delete jaaacki/emby-processor --write --confirm jaaacki/emby-processor
 ```
 
 ## Goals
@@ -178,10 +181,10 @@ wpci <alias> queue ...
 ## Status
 
 Usable and installable from releases (latest `v0.0.6`). Multi-account
-configuration and the core read-only API surface (repo, pipeline, org, agent,
-queue, cron, registry, secret listing, user) are implemented and covered by
-tests. Ships with a three-tier Woodpecker CI (PR / dev / release) and a one-line
-curl installer (macOS, Linux, Windows). The `--write` and `--confirm` flags are
-reserved for milestone 4 (controlled writes), which is not yet implemented. See
-`docs/PDR.md` and `docs/ROADMAP.md` for what remains — milestone 4 (controlled
-writes) and milestone 5 (API-parity hardening).
+configuration and the full Woodpecker API surface (repo, pipeline, org, agent,
+queue, cron, registry, secret, user) are implemented and covered by tests. Ships
+with a three-tier Woodpecker CI (PR / dev / release) and a one-line curl
+installer (macOS, Linux, Windows). The `--write` and `--confirm` flags gate all
+mutating operations, and `wpci <alias> doctor --json` reports write support and
+advisory API parity. See `docs/PDR.md` and `docs/ROADMAP.md` for the completed
+milestones 4 (controlled writes) and 5 (API-parity hardening).
