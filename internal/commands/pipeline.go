@@ -11,6 +11,7 @@ import (
 	"github.com/jaaacki/woodpecker-cli/internal/api"
 	"github.com/jaaacki/woodpecker-cli/internal/client"
 	"github.com/jaaacki/woodpecker-cli/internal/output"
+	"github.com/jaaacki/woodpecker-cli/internal/safety"
 )
 
 func newPipelineCommand(alias string, newCtx ContextFactory) *cobra.Command {
@@ -25,6 +26,11 @@ func newPipelineCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	cmd.AddCommand(newPipelineMetadataCommand(alias, newCtx))
 	cmd.AddCommand(newPipelinePsCommand(alias, newCtx))
 	cmd.AddCommand(newPipelineLogCommand(alias, newCtx))
+	cmd.AddCommand(newPipelineRunCommand(alias, newCtx))
+	cmd.AddCommand(newPipelineRestartCommand(alias, newCtx))
+	cmd.AddCommand(newPipelineApproveCommand(alias, newCtx))
+	cmd.AddCommand(newPipelineDeclineCommand(alias, newCtx))
+	cmd.AddCommand(newPipelineCancelCommand(alias, newCtx))
 	return cmd
 }
 
@@ -408,6 +414,208 @@ func newPipelineLogShowCommand(alias string, newCtx ContextFactory) *cobra.Comma
 			for _, line := range logs {
 				ctx.Printf("%s", string(line.Data))
 			}
+			return nil
+		},
+		SilenceUsage: true,
+	}
+}
+
+func newPipelineRunCommand(alias string, newCtx ContextFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "run <owner/repo>",
+		Short: "Trigger a new pipeline",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := newCtx()
+			gate := safety.NewGate(writeFlagFromCmd(cmd), confirmFlagFromCmd(cmd))
+			if !gate.CheckWrite(ctx) {
+				return nil
+			}
+			c, err := client.New(alias, ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
+			}
+			repoID, err := resolveRepoID(c, args[0], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			branch, _ := cmd.Flags().GetString("branch")
+			vars, _ := cmd.Flags().GetStringToString("var")
+			opts := api.PipelineOptions{Branch: branch, Variables: vars}
+			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines")
+			var pipeline api.Pipeline
+			if err := c.PostJSON(urlStr, opts, &pipeline); err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			if ctx.JSON {
+				ctx.Data(pipeline)
+				return nil
+			}
+			ctx.Println("Triggered pipeline", pipeline.Number)
+			return nil
+		},
+		SilenceUsage: true,
+	}
+	fs := cmd.Flags()
+	fs.String("branch", "", "Branch to build (defaults to repository default branch)")
+	fs.StringToString("var", nil, "Pipeline variables (KEY=VALUE)")
+	return cmd
+}
+
+func newPipelineRestartCommand(alias string, newCtx ContextFactory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "restart <owner/repo> <number>",
+		Short: "Restart an existing pipeline",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := newCtx()
+			gate := safety.NewGate(writeFlagFromCmd(cmd), confirmFlagFromCmd(cmd))
+			if !gate.CheckWrite(ctx) {
+				return nil
+			}
+			c, err := client.New(alias, ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
+			}
+			repoID, err := resolveRepoID(c, args[0], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			number, err := parsePipelineNumber(args[1], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitUsage)
+				return nil
+			}
+			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10))
+			var pipeline api.Pipeline
+			if err := c.PostJSON(urlStr, nil, &pipeline); err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			if ctx.JSON {
+				ctx.Data(pipeline)
+				return nil
+			}
+			ctx.Println("Restarted pipeline", pipeline.Number)
+			return nil
+		},
+		SilenceUsage: true,
+	}
+}
+
+func newPipelineApproveCommand(alias string, newCtx ContextFactory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "approve <owner/repo> <number>",
+		Short: "Approve a blocked pipeline",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := newCtx()
+			gate := safety.NewGate(writeFlagFromCmd(cmd), confirmFlagFromCmd(cmd))
+			if !gate.CheckWrite(ctx) {
+				return nil
+			}
+			c, err := client.New(alias, ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
+			}
+			repoID, err := resolveRepoID(c, args[0], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			number, err := parsePipelineNumber(args[1], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitUsage)
+				return nil
+			}
+			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "approve")
+			if _, err := c.Post(urlStr, nil); err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			ctx.Println("Approved pipeline", number)
+			return nil
+		},
+		SilenceUsage: true,
+	}
+}
+
+func newPipelineDeclineCommand(alias string, newCtx ContextFactory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "decline <owner/repo> <number>",
+		Short: "Decline a blocked pipeline",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := newCtx()
+			gate := safety.NewGate(writeFlagFromCmd(cmd), confirmFlagFromCmd(cmd))
+			if !gate.CheckWrite(ctx) {
+				return nil
+			}
+			c, err := client.New(alias, ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
+			}
+			repoID, err := resolveRepoID(c, args[0], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			number, err := parsePipelineNumber(args[1], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitUsage)
+				return nil
+			}
+			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "decline")
+			if _, err := c.Post(urlStr, nil); err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			ctx.Println("Declined pipeline", number)
+			return nil
+		},
+		SilenceUsage: true,
+	}
+}
+
+func newPipelineCancelCommand(alias string, newCtx ContextFactory) *cobra.Command {
+	return &cobra.Command{
+		Use:   "cancel <owner/repo> <number>",
+		Short: "Cancel a running or pending pipeline",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			ctx := newCtx()
+			gate := safety.NewGate(writeFlagFromCmd(cmd), confirmFlagFromCmd(cmd))
+			if !gate.CheckWrite(ctx) {
+				return nil
+			}
+			c, err := client.New(alias, ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitConfig)
+				return nil
+			}
+			repoID, err := resolveRepoID(c, args[0], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			number, err := parsePipelineNumber(args[1], ctx)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitUsage)
+				return nil
+			}
+			urlStr := c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines", strconv.FormatInt(number, 10), "cancel")
+			if _, err := c.Post(urlStr, nil); err != nil {
+				ctx.Error(err.Error(), client.ExitForError(err))
+				return nil
+			}
+			ctx.Println("Cancelled pipeline", number)
 			return nil
 		},
 		SilenceUsage: true,

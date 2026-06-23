@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -169,6 +170,73 @@ func (c *Client) GetRaw(urlStr string) ([]byte, error) {
 // GetPage fetches a page of a list endpoint.
 func (c *Client) GetPage(urlStr string, target any) error {
 	return c.GetJSON(urlStr, target)
+}
+
+// PostJSON sends a JSON body and unmarshals the response.
+func (c *Client) PostJSON(urlStr string, body any, target any) error {
+	return c.sendJSON(http.MethodPost, urlStr, body, target)
+}
+
+// Post sends a JSON body and returns the raw response body without unmarshalling.
+func (c *Client) Post(urlStr string, body any) ([]byte, error) {
+	return c.sendJSONRaw(http.MethodPost, urlStr, body)
+}
+
+// PatchJSON sends a JSON patch body and unmarshals the response.
+func (c *Client) PatchJSON(urlStr string, body any, target any) error {
+	return c.sendJSON(http.MethodPatch, urlStr, body, target)
+}
+
+// PutJSON sends a JSON body with PUT and unmarshals the response.
+func (c *Client) PutJSON(urlStr string, body any, target any) error {
+	return c.sendJSON(http.MethodPut, urlStr, body, target)
+}
+
+// Delete sends a DELETE request and returns any response body.
+func (c *Client) Delete(urlStr string) ([]byte, error) {
+	req, err := c.Request(http.MethodDelete, urlStr, nil)
+	if err != nil {
+		return nil, err
+	}
+	_, b, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+func (c *Client) sendJSON(method, urlStr string, body any, target any) error {
+	b, err := c.sendJSONRaw(method, urlStr, body)
+	if err != nil {
+		return err
+	}
+	if target == nil {
+		return nil
+	}
+	if err := json.Unmarshal(b, target); err != nil {
+		return fmt.Errorf("parsing JSON: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) sendJSONRaw(method, urlStr string, body any) ([]byte, error) {
+	var r io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("encoding JSON: %w", err)
+		}
+		r = bytes.NewReader(data)
+	}
+	req, err := c.Request(method, urlStr, r)
+	if err != nil {
+		return nil, err
+	}
+	_, b, err := c.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // Body returns a response body with trailing newline when not in JSON mode.

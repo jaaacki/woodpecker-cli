@@ -2,12 +2,15 @@ package commands
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+
+	"github.com/spf13/cobra"
 
 	"github.com/jaaacki/woodpecker-cli/internal/auth"
 	"github.com/jaaacki/woodpecker-cli/internal/config"
@@ -105,5 +108,211 @@ func TestRepoCommandUsesSubprocess(t *testing.T) {
 	}
 	if !bytes.Contains(out, []byte("Repository operations")) {
 		t.Fatalf("expected repo help, got:\n%s", out)
+	}
+}
+
+func addSafetyFlags(cmd *cobra.Command) {
+	cmd.Flags().Bool("write", false, "")
+	cmd.Flags().String("confirm", "", "")
+}
+
+func setupTestAccount(server string) func() {
+	acct := config.Account{Alias: "test", Server: server, APIBase: "/api", TimeoutSeconds: 30}
+	if err := acct.Save(); err != nil {
+		panic(err)
+	}
+	_ = auth.NewToken("test").Save("token")
+	return func() {
+		config.RemoveAccount("test")
+		auth.NewToken("test").Remove()
+	}
+}
+
+func TestRepoEnable(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPost && r.URL.Path == "/api/repos" && r.URL.Query().Get("repo_full_name") == "owner/repo" {
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+			return
+		}
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoEnableCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepoDisable(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo", "active": true}`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/repos/7":
+			body, _ := io.ReadAll(r.Body)
+			if !bytes.Contains(body, []byte(`"active":false`)) {
+				http.Error(w, "expected active=false", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo", "active": false}`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoDisableCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepoEdit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPatch && r.URL.Path == "/api/repos/7":
+			body, _ := io.ReadAll(r.Body)
+			if !bytes.Contains(body, []byte(`"timeout":90`)) || !bytes.Contains(body, []byte(`"visibility":"private"`)) {
+				http.Error(w, "expected timeout and visibility", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo", "timeout": 90, "visibility": "private"}`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoEditCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "--timeout", "90", "--visibility", "private", "owner/repo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepoDelete(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodDelete && r.URL.Path == "/api/repos/7":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoDeleteCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "--confirm", "owner/repo", "owner/repo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepoRepair(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/7/repair":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoRepairCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepoChown(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/7/chown" && r.URL.Query().Get("user_id") == "99":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoChownCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "--confirm", "owner/repo", "owner/repo", "99"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRepoMove(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/7/move" && r.URL.Query().Get("forge_remote_id") == "12345":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newRepoMoveCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "--confirm", "owner/repo", "owner/repo", "12345"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
 	}
 }

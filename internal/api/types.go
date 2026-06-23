@@ -10,7 +10,7 @@ type Trusted struct {
 	Security bool `json:"security,omitempty"`
 }
 
-// Repo is the minimal Woodpecker repository shape.
+// Repo is the Woodpecker repository shape.
 type Repo struct {
 	ID               int64    `json:"id"`
 	ForgeRemoteID    string   `json:"forge_remote_id,omitempty"`
@@ -33,6 +33,21 @@ type Repo struct {
 	CancelPrev       []string `json:"cancel_previous_pipeline_events,omitempty"`
 	NetrcOnlyTrusted bool     `json:"netrc_only_trusted,omitempty"`
 	OrgID            int64    `json:"org_id,omitempty"`
+	ConfigFile       string   `json:"config_file,omitempty"`
+}
+
+// RepoPatch is the subset of Repo fields that can be changed via PATCH /repos/{repo_id}.
+type RepoPatch struct {
+	Active        *bool    `json:"active,omitempty"`
+	AllowPull     *bool    `json:"allow_pull_requests,omitempty"`
+	CancelPrev    []string `json:"cancel_previous_pipeline_events,omitempty"`
+	ConfigFile    *string  `json:"config_file,omitempty"`
+	DefaultBranch *string  `json:"default_branch,omitempty"`
+	Private       *bool    `json:"private,omitempty"`
+	Protected     *bool    `json:"protected,omitempty"`
+	Timeout       *int64   `json:"timeout,omitempty"`
+	Trusted       *Trusted `json:"trusted,omitempty"`
+	Visibility    *string  `json:"visibility,omitempty"`
 }
 
 // Pipeline is the minimal Woodpecker pipeline shape.
@@ -62,6 +77,12 @@ type Pipeline struct {
 	LinkURL      string     `json:"link_url,omitempty"`
 	ChangedFiles []string   `json:"changed_files,omitempty"`
 	Workflows    []Workflow `json:"workflows,omitempty"`
+}
+
+// PipelineOptions is the body used to trigger or restart a pipeline.
+type PipelineOptions struct {
+	Branch    string            `json:"branch,omitempty"`
+	Variables map[string]string `json:"variables,omitempty"`
 }
 
 // Workflow is a top-level workflow in a pipeline. In Woodpecker 3.x a pipeline
@@ -117,20 +138,27 @@ type LogLineData struct {
 	Out string `json:"out,omitempty"`
 }
 
-// User is the minimal Woodpecker user shape.
+// User is the Woodpecker user shape.
 type User struct {
-	ID     int64  `json:"id"`
+	ID     int64  `json:"id,omitempty"`
 	Login  string `json:"login"`
 	Email  string `json:"email,omitempty"`
 	Avatar string `json:"avatar_url,omitempty"`
 	Admin  bool   `json:"admin,omitempty"`
 	Active bool   `json:"active,omitempty"`
 	Synced int64  `json:"synced,omitempty"`
+	Hash   string `json:"hash,omitempty"`
+	OrgID  int64  `json:"org_id,omitempty"`
+}
+
+// Token is a Woodpecker API token response.
+type Token struct {
+	Value string `json:"token"`
 }
 
 // Agent is a Woodpecker agent.
 type Agent struct {
-	ID          int64  `json:"id"`
+	ID          int64  `json:"id,omitempty"`
 	Name        string `json:"name"`
 	Token       string `json:"token,omitempty"`
 	LastContact int64  `json:"last_contact,omitempty"`
@@ -139,6 +167,13 @@ type Agent struct {
 	Capacity    int64  `json:"capacity,omitempty"`
 	NoSchedule  bool   `json:"no_schedule,omitempty"`
 	Version     string `json:"version,omitempty"`
+}
+
+// Task is a running task reported by an agent.
+type Task struct {
+	ID             int64  `json:"id,omitempty"`
+	RepositoryName string `json:"repository_name,omitempty"`
+	Status         string `json:"status,omitempty"`
 }
 
 // QueueInfo is the queue status response.
@@ -155,9 +190,9 @@ type QueueInfo struct {
 
 // Cron is a scheduled pipeline.
 type Cron struct {
-	ID        int64  `json:"id"`
+	ID        int64  `json:"id,omitempty"`
 	Name      string `json:"name"`
-	RepoID    int64  `json:"repo_id"`
+	RepoID    int64  `json:"repo_id,omitempty"`
 	CreatorID int64  `json:"creator_id,omitempty"`
 	NextExec  int64  `json:"next_exec,omitempty"`
 	Schedule  string `json:"schedule,omitempty"`
@@ -166,16 +201,18 @@ type Cron struct {
 
 // Secret is a Woodpecker secret.
 type Secret struct {
-	ID     int64    `json:"id"`
+	ID     int64    `json:"id,omitempty"`
 	Name   string   `json:"name"`
 	Value  string   `json:"value,omitempty"`
 	Images []string `json:"images,omitempty"`
 	Events []string `json:"events,omitempty"`
+	OrgID  int64    `json:"org_id,omitempty"`
+	RepoID int64    `json:"repo_id,omitempty"`
 }
 
 // Registry is a container registry credential.
 type Registry struct {
-	ID       int64  `json:"id"`
+	ID       int64  `json:"id,omitempty"`
 	Address  string `json:"address"`
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
@@ -183,7 +220,7 @@ type Registry struct {
 
 // Org is a Woodpecker organization.
 type Org struct {
-	ID      int64  `json:"id"`
+	ID      int64  `json:"id,omitempty"`
 	Name    string `json:"name"`
 	IsUser  bool   `json:"is_user,omitempty"`
 	Private bool   `json:"private,omitempty"`
