@@ -1,6 +1,7 @@
 package client
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -134,6 +135,82 @@ func TestResolveRepoFallback(t *testing.T) {
 	}
 	if repo.ID != 42 {
 		t.Fatalf("expected repo id 42, got %d", repo.ID)
+	}
+}
+
+func TestPostJSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "expected POST", http.StatusMethodNotAllowed)
+			return
+		}
+		if r.Header.Get("Content-Type") != "application/json" {
+			http.Error(w, "expected json content type", http.StatusBadRequest)
+			return
+		}
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if body["name"] != "value" {
+			http.Error(w, "unexpected body", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":1}`))
+	}))
+	defer ts.Close()
+
+	acct := config.Account{Server: ts.URL, APIBase: "/api", TimeoutSeconds: 30}
+	c := NewWithToken(acct, "token", output.NewContext())
+	var result struct {
+		ID int64 `json:"id"`
+	}
+	if err := c.PostJSON(c.URL("test"), map[string]any{"name": "value"}, &result); err != nil {
+		t.Fatal(err)
+	}
+	if result.ID != 1 {
+		t.Fatalf("expected id 1, got %d", result.ID)
+	}
+}
+
+func TestDelete(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, "expected DELETE", http.StatusMethodNotAllowed)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer ts.Close()
+
+	acct := config.Account{Server: ts.URL, APIBase: "/api", TimeoutSeconds: 30}
+	c := NewWithToken(acct, "token", output.NewContext())
+	if _, err := c.Delete(c.URL("repos", "1")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPatchJSON(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			http.Error(w, "expected PATCH", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"active":true}`))
+	}))
+	defer ts.Close()
+
+	acct := config.Account{Server: ts.URL, APIBase: "/api", TimeoutSeconds: 30}
+	c := NewWithToken(acct, "token", output.NewContext())
+	var repo api.Repo
+	if err := c.PatchJSON(c.URL("repos", "1"), api.Repo{Active: true}, &repo); err != nil {
+		t.Fatal(err)
+	}
+	if !repo.Active {
+		t.Fatal("expected active repo")
 	}
 }
 

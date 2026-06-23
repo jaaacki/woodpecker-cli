@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -104,5 +105,140 @@ func TestPipelineLogRaw(t *testing.T) {
 	}
 	if !bytes.Contains(buf.Bytes(), []byte("line1")) {
 		t.Fatalf("expected raw log output, got:\n%s", buf.String())
+	}
+}
+
+func TestPipelineRun(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/42/pipelines":
+			body, _ := io.ReadAll(r.Body)
+			if !bytes.Contains(body, []byte(`"branch":"dev"`)) || !bytes.Contains(body, []byte(`"FOO":"bar"`)) {
+				http.Error(w, "expected branch and variables", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"id": 1, "number": 8, "branch": "dev", "status": "pending"}`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newPipelineRunCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "--branch", "dev", "--var", "FOO=bar", "owner/repo"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPipelineRestart(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/42/pipelines/7":
+			_, _ = w.Write([]byte(`{"id": 1, "number": 7, "status": "pending"}`))
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newPipelineRestartCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo", "7"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPipelineApprove(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/42/pipelines/7/approve":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newPipelineApproveCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo", "7"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPipelineDecline(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/42/pipelines/7/decline":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newPipelineDeclineCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo", "7"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPipelineCancel(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
+			_, _ = w.Write([]byte(`{"id": 42, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/42/pipelines/7/cancel":
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.Error(w, "not found", http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newPipelineCancelCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "owner/repo", "7"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
 	}
 }

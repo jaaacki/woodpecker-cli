@@ -7,7 +7,6 @@ import (
 )
 
 // Gate checks whether a mutating or destructive operation is allowed.
-// For the read-only milestone every read-only command bypasses this.
 type Gate struct {
 	Write   bool
 	Confirm string
@@ -24,28 +23,29 @@ func (g Gate) CanWrite() bool {
 }
 
 // CheckWrite fails with a JSON-aware safety error unless --write was passed.
-func (g Gate) CheckWrite(ctx output.Context) {
+func (g Gate) CheckWrite(ctx output.Context) bool {
 	if g.Write {
-		return
+		return true
 	}
 	ctx.Error("This command may change remote state. Re-run with --write to proceed.", output.ExitSafety)
+	return false
 }
 
 // CheckConfirm fails unless --write was passed and --confirm matches the target.
-func (g Gate) CheckConfirm(ctx output.Context, target string) {
+func (g Gate) CheckConfirm(ctx output.Context, target string) bool {
 	if !g.Write {
 		ctx.Error("This command may change remote state. Re-run with --write to proceed.", output.ExitSafety)
+		return false
 	}
 	if g.Confirm != target {
 		ctx.Error(fmt.Sprintf("Confirmation mismatch: expected --confirm %q", target), output.ExitSafety)
-	}
-}
-
-// RequireWrite is a convenience helper for write-gated commands in this phase.
-// It returns true only when write is enabled; otherwise it exits.
-func (g Gate) RequireWrite(ctx output.Context) bool {
-	if !g.Write {
-		ctx.Error("This command writes to the API. Pass --write to enable.", output.ExitSafety)
+		return false
 	}
 	return true
+}
+
+// RequireWrite is a convenience helper for write-gated commands.
+// It returns true only when write is enabled; otherwise it exits.
+func (g Gate) RequireWrite(ctx output.Context) bool {
+	return g.CheckWrite(ctx)
 }
