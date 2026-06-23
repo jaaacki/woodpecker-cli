@@ -95,7 +95,6 @@ func newUserReposCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 }
 
-
 func newUserListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "ls",

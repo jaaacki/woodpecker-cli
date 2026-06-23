@@ -55,7 +55,6 @@ func newQueueInfoCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 }
 
-
 func newQueuePauseCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "pause",

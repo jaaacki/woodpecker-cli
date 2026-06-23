@@ -16,13 +16,13 @@ type apiParity struct {
 
 // doctorResult is the structured doctor report.
 type doctorResult struct {
-	Ok                 bool     `json:"ok"`
-	Server             string   `json:"server"`
-	Version            any      `json:"version"`
-	User               any      `json:"user"`
-	WriteSupport       bool     `json:"write_support"`
+	Ok                 bool      `json:"ok"`
+	Server             string    `json:"server"`
+	Version            any       `json:"version"`
+	User               any       `json:"user"`
+	WriteSupport       bool      `json:"write_support"`
 	OpenAPIParityScore apiParity `json:"openapi_parity_score"`
-	CompatibilityNotes []string `json:"compatibility_notes"`
+	CompatibilityNotes []string  `json:"compatibility_notes"`
 }
 
 // NewDoctorCommand returns `wpci <alias> doctor` or `wpci doctor`. The alias
@@ -63,8 +63,7 @@ func NewDoctorCommand(aliasResolver func() string) *cobra.Command {
 			var versionUnavailable bool
 			versionErr := c.GetJSON(c.URL("version"), &version)
 			if versionErr != nil {
-				var apiErr api.APIError
-				if apiErrOk := api.AsAPIError(versionErr); apiErrOk && apiErr.NotFound() {
+				if apiErr, ok := api.AsAPIError(versionErr); ok && apiErr.NotFound() {
 					versionUnavailable = true
 					versionErr = nil
 				}

@@ -169,11 +169,11 @@ func newRepoLookupCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				{"DefaultBranch", repo.DefaultBranch},
 			}
 			ctx.PrintTable([]string{"KEY", "VALUE"}, rows)
-				return nil
-			},
-			SilenceUsage: true,
-		}
+			return nil
+		},
+		SilenceUsage: true,
 	}
+}
 
 func newRepoEnableCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{

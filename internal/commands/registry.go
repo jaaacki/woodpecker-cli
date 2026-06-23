@@ -93,7 +93,6 @@ func newRegistryListCommand(alias string, newCtx ContextFactory) *cobra.Command 
 	}
 }
 
-
 // registryScopeURL resolves the base scope path and registry address for a registry scope.
 func registryScopeURL(c *client.Client, args []string) (scope string, address string, err error) {
 	if len(args) < 1 {

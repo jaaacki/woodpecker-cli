@@ -56,7 +56,6 @@ func newOrgListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 }
 
-
 func newOrgDeleteCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <name>",

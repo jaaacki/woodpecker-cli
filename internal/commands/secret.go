@@ -96,7 +96,6 @@ func newSecretListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 }
 
-
 // secretScopeURL resolves the base scope path and secret name for a secret scope.
 // args is the command args excluding the secret name (i.e. [global|org <org>|repo <owner/repo>]).
 func secretScopeURL(c *client.Client, args []string) (scope string, name string, err error) {
@@ -144,7 +143,7 @@ func newSecretShowCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			baseURL, name, err := secretScopeURL(c, args)
+			scope, name, err := secretScopeURL(c, args)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
@@ -188,7 +187,7 @@ func newSecretAddCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			baseURL, name, err := secretScopeURL(c, args)
+			scope, name, err := secretScopeURL(c, args)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
@@ -240,7 +239,7 @@ func newSecretEditCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			baseURL, name, err := secretScopeURL(c, args)
+			scope, name, err := secretScopeURL(c, args)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
@@ -300,7 +299,7 @@ func newSecretDeleteCommand(alias string, newCtx ContextFactory) *cobra.Command 
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			baseURL, name, err := secretScopeURL(c, args)
+			scope, name, err := secretScopeURL(c, args)
 			if err != nil {
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil

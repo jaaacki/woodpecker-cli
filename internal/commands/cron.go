@@ -72,7 +72,6 @@ func newCronListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 }
 
-
 func newCronShowCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <owner/repo> <name>",

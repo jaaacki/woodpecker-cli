@@ -67,7 +67,6 @@ func newAgentListCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 }
 
-
 func newAgentShowCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <id>",
