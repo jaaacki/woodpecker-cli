@@ -60,7 +60,7 @@ func TestSecretDeleteRepo(t *testing.T) {
 	ctx := output.NewJSONContext()
 	cmd := newSecretDeleteCommand("test", func() output.Context { return ctx })
 	addSafetyFlags(cmd)
-	cmd.SetArgs([]string{"--write", "repo", "owner/repo", "docker"})
+	cmd.SetArgs([]string{"--write", "--confirm", "docker", "repo", "owner/repo", "docker"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

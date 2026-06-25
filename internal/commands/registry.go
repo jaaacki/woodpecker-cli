@@ -282,6 +282,9 @@ func newRegistryDeleteCommand(alias string, newCtx ContextFactory) *cobra.Comman
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
 			}
+			if !gate.CheckConfirm(ctx, address) {
+				return nil
+			}
 			urlStr := c.URL(scope, address)
 			if _, err := c.Delete(urlStr); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))

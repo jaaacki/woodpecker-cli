@@ -131,7 +131,7 @@ func setupTestAccount(server string) func() {
 func TestRepoEnable(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.Method == http.MethodPost && r.URL.Path == "/api/repos" && r.URL.Query().Get("repo_full_name") == "owner/repo" {
+		if r.Method == http.MethodPost && r.URL.Path == "/api/repos" && r.URL.Query().Get("forge_remote_id") == "12345" {
 			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
 			return
 		}
@@ -145,7 +145,7 @@ func TestRepoEnable(t *testing.T) {
 	ctx := output.NewJSONContext()
 	cmd := newRepoEnableCommand("test", func() output.Context { return ctx })
 	addSafetyFlags(cmd)
-	cmd.SetArgs([]string{"--write", "owner/repo"})
+	cmd.SetArgs([]string{"--write", "12345"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -157,12 +157,7 @@ func TestRepoDisable(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
 			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo", "active": true}`))
-		case r.Method == http.MethodPatch && r.URL.Path == "/api/repos/7":
-			body, _ := io.ReadAll(r.Body)
-			if !bytes.Contains(body, []byte(`"active":false`)) {
-				http.Error(w, "expected active=false", http.StatusBadRequest)
-				return
-			}
+		case r.Method == http.MethodDelete && r.URL.Path == "/api/repos/7" && r.URL.Query().Get("remove") == "false":
 			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo", "active": false}`))
 		default:
 			http.Error(w, "not found", http.StatusNotFound)
@@ -176,7 +171,7 @@ func TestRepoDisable(t *testing.T) {
 	ctx := output.NewJSONContext()
 	cmd := newRepoDisableCommand("test", func() output.Context { return ctx })
 	addSafetyFlags(cmd)
-	cmd.SetArgs([]string{"--write", "owner/repo"})
+	cmd.SetArgs([]string{"--write", "--confirm", "owner/repo", "owner/repo"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -219,7 +214,7 @@ func TestRepoDelete(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
 			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
-		case r.Method == http.MethodDelete && r.URL.Path == "/api/repos/7":
+		case r.Method == http.MethodDelete && r.URL.Path == "/api/repos/7" && r.URL.Query().Get("remove") == "true":
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			http.Error(w, "not found", http.StatusNotFound)
@@ -297,7 +292,7 @@ func TestRepoMove(t *testing.T) {
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/repos/lookup/owner/repo":
 			_, _ = w.Write([]byte(`{"id": 7, "owner": "owner", "name": "repo", "full_name": "owner/repo"}`))
-		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/7/move" && r.URL.Query().Get("forge_remote_id") == "12345":
+		case r.Method == http.MethodPost && r.URL.Path == "/api/repos/7/move" && r.URL.Query().Get("to") == "newowner/repo":
 			w.WriteHeader(http.StatusNoContent)
 		default:
 			http.Error(w, "not found", http.StatusNotFound)
@@ -311,7 +306,7 @@ func TestRepoMove(t *testing.T) {
 	ctx := output.NewJSONContext()
 	cmd := newRepoMoveCommand("test", func() output.Context { return ctx })
 	addSafetyFlags(cmd)
-	cmd.SetArgs([]string{"--write", "--confirm", "owner/repo", "owner/repo", "12345"})
+	cmd.SetArgs([]string{"--write", "--confirm", "owner/repo", "owner/repo", "newowner/repo"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

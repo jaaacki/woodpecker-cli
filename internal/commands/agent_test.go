@@ -59,3 +59,36 @@ func TestAgentDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestAgentEdit(t *testing.T) {
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.Method == http.MethodPatch && r.URL.Path == "/api/agents/7" {
+			body, _ := io.ReadAll(r.Body)
+			// Server should receive only the changed field, not an empty name.
+			if !contains(string(body), `"no_schedule":true`) {
+				http.Error(w, "expected no_schedule=true", http.StatusBadRequest)
+				return
+			}
+			if contains(string(body), `"name":""`) {
+				http.Error(w, "unexpected empty name", http.StatusBadRequest)
+				return
+			}
+			_, _ = w.Write([]byte(`{"id": 7, "name": "agent-7"}`))
+			return
+		}
+		http.Error(w, "not found", http.StatusNotFound)
+	}))
+	defer ts.Close()
+
+	cleanup := setupTestAccount(ts.URL)
+	defer cleanup()
+
+	ctx := output.NewJSONContext()
+	cmd := newAgentEditCommand("test", func() output.Context { return ctx })
+	addSafetyFlags(cmd)
+	cmd.SetArgs([]string{"--write", "--confirm", "7", "7", "--no-schedule"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
