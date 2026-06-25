@@ -2,6 +2,7 @@ package commands
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -184,16 +185,19 @@ func newUserEditCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				return nil
 			}
 			login := args[0]
-			patch := api.User{Login: login}
+			patch := api.UserPatch{}
 			fs := cmd.Flags()
 			if fs.Changed("email") {
-				patch.Email, _ = fs.GetString("email")
+				v, _ := fs.GetString("email")
+				patch.Email = &v
 			}
 			if fs.Changed("active") {
-				patch.Active, _ = fs.GetBool("active")
+				v, _ := fs.GetBool("active")
+				patch.Active = &v
 			}
 			if fs.Changed("admin") {
-				patch.Admin, _ = fs.GetBool("admin")
+				v, _ := fs.GetBool("admin")
+				patch.Admin = &v
 			}
 			var updated api.User
 			urlStr := c.URL("users", login)
@@ -267,16 +271,17 @@ func newUserTokenShowCommand(alias string, newCtx ContextFactory) *cobra.Command
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			var token api.Token
-			if err := c.PostJSON(c.URL("user", "token"), nil, &token); err != nil {
+			b, err := c.Post(c.URL("user", "token"), nil)
+			if err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
+			token := strings.TrimSpace(string(b))
 			if ctx.JSON {
-				ctx.Data(token)
+				ctx.Data(map[string]string{"token": token})
 				return nil
 			}
-			ctx.Println(token.Value)
+			ctx.Println(token)
 			return nil
 		},
 		SilenceUsage: true,
@@ -298,11 +303,17 @@ func newUserTokenResetCommand(alias string, newCtx ContextFactory) *cobra.Comman
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			if _, err := c.Delete(c.URL("user", "token")); err != nil {
+			b, err := c.Delete(c.URL("user", "token"))
+			if err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
-			ctx.Println("Token reset")
+			token := strings.TrimSpace(string(b))
+			if ctx.JSON {
+				ctx.Data(map[string]string{"token": token})
+				return nil
+			}
+			ctx.Println("Token reset. New token:", token)
 			return nil
 		},
 		SilenceUsage: true,

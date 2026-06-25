@@ -68,7 +68,11 @@ func newPipelineListCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			if branch != "" {
 				params.Set("branch", branch)
 			}
-			urlStr := client.SetQuery(c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines"), params)
+			urlStr, err := client.SetQuery(c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines"), params)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			var pipelines []api.Pipeline
 			if err := c.GetJSON(urlStr, &pipelines); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
@@ -123,7 +127,11 @@ func newPipelineLastCommand(alias string, newCtx ContextFactory) *cobra.Command 
 			if branch != "" {
 				params.Set("branch", branch)
 			}
-			urlStr := client.SetQuery(c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines"), params)
+			urlStr, err := client.SetQuery(c.URL("repos", strconv.FormatInt(repoID, 10), "pipelines"), params)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			var pipelines []api.Pipeline
 			if err := c.GetJSON(urlStr, &pipelines); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))

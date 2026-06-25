@@ -173,22 +173,15 @@ func newAgentEditCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				return nil
 			}
 			id := args[0]
-			patch := api.Agent{}
+			patch := api.AgentPatch{}
 			fs := cmd.Flags()
 			if fs.Changed("name") {
-				patch.Name, _ = fs.GetString("name")
-			}
-			if fs.Changed("platform") {
-				patch.Platform, _ = fs.GetString("platform")
-			}
-			if fs.Changed("backend") {
-				patch.Backend, _ = fs.GetString("backend")
-			}
-			if fs.Changed("capacity") {
-				patch.Capacity, _ = fs.GetInt64("capacity")
+				v, _ := fs.GetString("name")
+				patch.Name = &v
 			}
 			if fs.Changed("no-schedule") {
-				patch.NoSchedule, _ = fs.GetBool("no-schedule")
+				v, _ := fs.GetBool("no-schedule")
+				patch.NoSchedule = &v
 			}
 			var updated api.Agent
 			urlStr := c.URL("agents", id)
@@ -207,9 +200,6 @@ func newAgentEditCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	}
 	fs := cmd.Flags()
 	fs.String("name", "", "Agent name")
-	fs.String("platform", "", "Agent platform")
-	fs.String("backend", "", "Agent backend")
-	fs.Int64("capacity", 0, "Agent capacity")
 	fs.Bool("no-schedule", false, "Disable scheduling on this agent")
 	return cmd
 }

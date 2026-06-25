@@ -37,9 +37,19 @@ func TestURL(t *testing.T) {
 }
 
 func TestSetQuery(t *testing.T) {
-	u := SetQuery("https://example.com/api/repos", map[string][]string{"page": {"2"}})
+	u, err := SetQuery("https://example.com/api/repos", map[string][]string{"page": {"2"}})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if u != "https://example.com/api/repos?page=2" {
 		t.Fatalf("query mismatch: %s", u)
+	}
+}
+
+func TestSetQueryError(t *testing.T) {
+	_, err := SetQuery("://invalid", map[string][]string{"page": {"2"}})
+	if err == nil {
+		t.Fatal("expected error for malformed URL")
 	}
 }
 

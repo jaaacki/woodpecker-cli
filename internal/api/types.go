@@ -6,11 +6,12 @@ import (
 )
 
 // Trusted are the per-dimension trust flags Woodpecker 3.x attaches to a repo.
-// In 3.x `trusted` is an object, not a bool.
+// In 3.x `trusted` is an object, not a bool. Pointer fields let callers send
+// explicit false values to clear a previously set trust flag.
 type Trusted struct {
-	Network  bool `json:"network,omitempty"`
-	Volumes  bool `json:"volumes,omitempty"`
-	Security bool `json:"security,omitempty"`
+	Network  *bool `json:"network,omitempty"`
+	Volumes  *bool `json:"volumes,omitempty"`
+	Security *bool `json:"security,omitempty"`
 }
 
 // Repo is the Woodpecker repository shape.
@@ -154,6 +155,14 @@ type User struct {
 	OrgID  int64  `json:"org_id,omitempty"`
 }
 
+// UserPatch is the subset of User fields that can be changed via PATCH /users/{login}.
+// Pointer fields distinguish "not set" from "explicitly false".
+type UserPatch struct {
+	Email  *string `json:"email,omitempty"`
+	Admin  *bool   `json:"admin,omitempty"`
+	Active *bool   `json:"active,omitempty"`
+}
+
 // Token is a Woodpecker API token response.
 type Token struct {
 	Value string `json:"token"`
@@ -170,6 +179,13 @@ type Agent struct {
 	Capacity    int64  `json:"capacity,omitempty"`
 	NoSchedule  bool   `json:"no_schedule,omitempty"`
 	Version     string `json:"version,omitempty"`
+}
+
+// AgentPatch is the subset of Agent fields that can be changed via PATCH /agents/{id}.
+// Pointer fields distinguish "not set" from explicitly empty/false values.
+type AgentPatch struct {
+	Name       *string `json:"name,omitempty"`
+	NoSchedule *bool   `json:"no_schedule,omitempty"`
 }
 
 // Task is a running task reported by an agent.

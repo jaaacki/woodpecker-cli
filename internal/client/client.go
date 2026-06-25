@@ -84,16 +84,16 @@ func (c *Client) URL(parts ...string) string {
 }
 
 // SetQuery appends query parameters to a URL string.
-func SetQuery(rawURL string, params url.Values) string {
+func SetQuery(rawURL string, params url.Values) (string, error) {
 	if len(params) == 0 {
-		return rawURL
+		return rawURL, nil
 	}
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return rawURL + "?" + params.Encode()
+		return "", fmt.Errorf("parsing URL %q: %w", rawURL, err)
 	}
 	u.RawQuery = params.Encode()
-	return u.String()
+	return u.String(), nil
 }
 
 // Request builds a standard GET/POST/... request with bearer auth.

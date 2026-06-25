@@ -304,6 +304,9 @@ func newSecretDeleteCommand(alias string, newCtx ContextFactory) *cobra.Command 
 				ctx.Error(err.Error(), output.ExitUsage)
 				return nil
 			}
+			if !gate.CheckConfirm(ctx, name) {
+				return nil
+			}
 			urlStr := c.URL(scope, name)
 			if _, err := c.Delete(urlStr); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))

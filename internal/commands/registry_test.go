@@ -60,7 +60,7 @@ func TestRegistryDeleteRepo(t *testing.T) {
 	ctx := output.NewJSONContext()
 	cmd := newRegistryDeleteCommand("test", func() output.Context { return ctx })
 	addSafetyFlags(cmd)
-	cmd.SetArgs([]string{"--write", "repo", "owner/repo", "docker.io"})
+	cmd.SetArgs([]string{"--write", "--confirm", "docker.io", "repo", "owner/repo", "docker.io"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // ResolveRepo finds a repo by owner/repo full name. It prefers the lookup
-// endpoint and falls back to paginating /repos when the lookup fails.
+// endpoint and falls back to paginating /repos only when the lookup returns 404.
 func (c *Client) ResolveRepo(fullName string) (api.Repo, error) {
 	var repo api.Repo
 	if strings.TrimSpace(fullName) == "" {
@@ -33,7 +33,7 @@ func (c *Client) ResolveRepo(fullName string) (api.Repo, error) {
 	}
 
 	var apiErr api.APIError
-	if errors.As(err, &apiErr) && (apiErr.NotFound() || apiErr.BadRequest()) {
+	if errors.As(err, &apiErr) && apiErr.NotFound() {
 		return c.findRepoByScan(fullName)
 	}
 	return repo, err
@@ -47,7 +47,10 @@ func (c *Client) findRepoByScan(fullName string) (api.Repo, error) {
 		params := url.Values{}
 		params.Set("page", fmt.Sprintf("%d", page))
 		params.Set("per_page", "100")
-		urlStr := SetQuery(c.URL("repos"), params)
+		urlStr, err := SetQuery(c.URL("repos"), params)
+		if err != nil {
+			return repo, err
+		}
 		var repos []api.Repo
 		if err := c.GetJSON(urlStr, &repos); err != nil {
 			return repo, err

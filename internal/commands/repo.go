@@ -113,7 +113,11 @@ func newRepoSearchCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				return nil
 			}
 			query := args[0]
-			urlStr := client.SetQuery(c.URL("repos"), map[string][]string{"search": {query}})
+			urlStr, err := client.SetQuery(c.URL("repos"), map[string][]string{"search": {query}})
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			var repos []api.Repo
 			if err := c.GetJSON(urlStr, &repos); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
@@ -177,7 +181,7 @@ func newRepoLookupCommand(alias string, newCtx ContextFactory) *cobra.Command {
 
 func newRepoEnableCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "enable <owner/repo>",
+		Use:   "enable <forge-remote-id>",
 		Short: "Enable (activate) a repository in Woodpecker",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -191,8 +195,12 @@ func newRepoEnableCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), output.ExitConfig)
 				return nil
 			}
-			repoFullName := args[0]
-			urlStr := client.SetQuery(c.URL("repos"), map[string][]string{"repo_full_name": {repoFullName}})
+			forgeRemoteID := args[0]
+			urlStr, err := client.SetQuery(c.URL("repos"), map[string][]string{"forge_remote_id": {forgeRemoteID}})
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			var repo api.Repo
 			if err := c.PostJSON(urlStr, nil, &repo); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
@@ -213,7 +221,7 @@ func newRepoDisableCommand(alias string, newCtx ContextFactory) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := newCtx()
 			gate := safety.NewGate(writeFlagFromCmd(cmd), confirmFlagFromCmd(cmd))
-			if !gate.CheckWrite(ctx) {
+			if !gate.CheckWrite(ctx) || !gate.CheckConfirm(ctx, args[0]) {
 				return nil
 			}
 			c, err := client.New(alias, ctx)
@@ -226,9 +234,16 @@ func newRepoDisableCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
-			patch := api.RepoPatch{Active: boolPtr(false)}
-			urlStr := c.URL("repos", strconv.FormatInt(repo.ID, 10))
-			if err := c.PatchJSON(urlStr, patch, &repo); err != nil {
+			// Woodpecker deactivates a repo via DELETE with remove=false.
+			urlStr, err := client.SetQuery(
+				c.URL("repos", strconv.FormatInt(repo.ID, 10)),
+				map[string][]string{"remove": {"false"}},
+			)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
+			if _, err := c.Delete(urlStr); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
@@ -313,7 +328,14 @@ func newRepoDeleteCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
-			urlStr := c.URL("repos", strconv.FormatInt(repo.ID, 10))
+			urlStr, err := client.SetQuery(
+				c.URL("repos", strconv.FormatInt(repo.ID, 10)),
+				map[string][]string{"remove": {"true"}},
+			)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			if _, err := c.Delete(urlStr); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
@@ -381,10 +403,14 @@ func newRepoChownCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				return nil
 			}
 			userID := args[1]
-			urlStr := client.SetQuery(
+			urlStr, err := client.SetQuery(
 				c.URL("repos", strconv.FormatInt(repo.ID, 10), "chown"),
 				map[string][]string{"user_id": {userID}},
 			)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			if _, err := c.Post(urlStr, nil); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
@@ -398,8 +424,8 @@ func newRepoChownCommand(alias string, newCtx ContextFactory) *cobra.Command {
 
 func newRepoMoveCommand(alias string, newCtx ContextFactory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "move <owner/repo> <forge-remote-id>",
-		Short: "Move a repository to a new forge remote ID",
+		Use:   "move <owner/repo> <to-owner/repo>",
+		Short: "Move a repository to a new owner",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := newCtx()
@@ -418,11 +444,15 @@ func newRepoMoveCommand(alias string, newCtx ContextFactory) *cobra.Command {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
 			}
-			forgeRemoteID := args[1]
-			urlStr := client.SetQuery(
+			to := args[1]
+			urlStr, err := client.SetQuery(
 				c.URL("repos", strconv.FormatInt(repo.ID, 10), "move"),
-				map[string][]string{"forge_remote_id": {forgeRemoteID}},
+				map[string][]string{"to": {to}},
 			)
+			if err != nil {
+				ctx.Error(err.Error(), output.ExitRuntime)
+				return nil
+			}
 			if _, err := c.Post(urlStr, nil); err != nil {
 				ctx.Error(err.Error(), client.ExitForError(err))
 				return nil
@@ -491,15 +521,15 @@ func buildRepoPatch(cmd *cobra.Command) api.RepoPatch {
 		patch.Trusted = &api.Trusted{}
 		if fs.Changed("trusted-network") {
 			v, _ := fs.GetBool("trusted-network")
-			patch.Trusted.Network = v
+			patch.Trusted.Network = &v
 		}
 		if fs.Changed("trusted-volumes") {
 			v, _ := fs.GetBool("trusted-volumes")
-			patch.Trusted.Volumes = v
+			patch.Trusted.Volumes = &v
 		}
 		if fs.Changed("trusted-security") {
 			v, _ := fs.GetBool("trusted-security")
-			patch.Trusted.Security = v
+			patch.Trusted.Security = &v
 		}
 	}
 	return patch
