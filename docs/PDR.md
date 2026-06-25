@@ -383,9 +383,13 @@ forces an answer:
 
 - Should the public repository remain named `woodpecker-cli`, or should it be
   renamed to reduce confusion with Woodpecker's official CLI?
-- Should v1 include write/admin commands, or should the first release be
-  read-only plus account provisioning?
-- Should secrets support setting values in v1, or only list/show metadata until
-  redaction behavior is heavily tested?
 - Should log streaming use `/stream/logs/...` in v1, or should v1 start with
   non-streaming log fetch only?
+
+## Decisions Made
+
+- v1 includes write/admin commands gated by `--write` and `--confirm <target>`.
+- Secret values can be provided with `--value` for scripts or `--value-stdin`
+  to avoid shell history.
+- API parity probes in `doctor --json` are advisory; commands still surface
+  upstream 404/403 errors directly.
