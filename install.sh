@@ -96,5 +96,5 @@ if [ "$on_path" = "no" ]; then
   echo "  export PATH=\"$INSTALL_DIR:\$PATH\""
 fi
 echo "Next: configure a Woodpecker server account:"
-echo "  printf '%s' \"\$WPCI_TOKEN\" | $BIN_NAME account add home --server https://ci.example.com --token-stdin"
-echo "  $BIN_NAME home doctor"
+echo "  printf '%s' \"\$WPCI_TOKEN\" | $BIN_NAME account add prci --server https://ci.example.com --token-stdin"
+echo "  $BIN_NAME prci doctor"
