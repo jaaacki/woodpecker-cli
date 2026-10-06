@@ -92,7 +92,7 @@ Account config schema:
 
 ```json
 {
-  "alias": "home",
+  "alias": "prci",
   "server": "https://ci.example.com",
   "api_base": "/api",
   "auth": "bearer-token",
@@ -173,13 +173,13 @@ Read-only commands should work with no extra flag.
 Mutating commands require `--write`:
 
 ```sh
-wpci home pipeline stop jaaacki/project 123 --write
+wpci prci pipeline stop jaaacki/project 123 --write
 ```
 
 Destructive commands require `--write` and `--confirm <target>`:
 
 ```sh
-wpci home repo rm jaaacki/old-project --write --confirm jaaacki/old-project
+wpci prci repo rm jaaacki/old-project --write --confirm jaaacki/old-project
 ```
 
 Admin commands should be available, but not easy to run accidentally.
@@ -224,7 +224,7 @@ Agent-friendly errors should be structured:
   "error": {
     "kind": "auth_failed",
     "message": "HTTP 401 from /api/user",
-    "hint": "Run: wpci account token set home"
+    "hint": "Run: wpci account token set prci"
   }
 }
 ```
