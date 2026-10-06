@@ -61,8 +61,8 @@ try {
     Write-Host "  [Environment]::SetEnvironmentVariable('PATH', `"$InstallDir;`$([Environment]::GetEnvironmentVariable('PATH','User'))`", 'User')"
   }
   Write-Host "Next: configure a Woodpecker server account:"
-  Write-Host "  `$token = Read-Host -AsSecureString 'Token'; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$token)) | wpci account add home --server https://ci.example.com --token-stdin"
-  Write-Host "  wpci home doctor"
+  Write-Host "  `$token = Read-Host -AsSecureString 'Token'; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR(`$token)) | wpci account add prci --server https://ci.example.com --token-stdin"
+  Write-Host "  wpci prci doctor"
 } finally {
   Remove-Item -Recurse -Force $tmp -ErrorAction SilentlyContinue
 }

@@ -16,14 +16,14 @@ wpci <account-alias> <api-area> <action> [params/options]
 Examples:
 
 ```sh
-wpci home repo ls
-wpci home repo show jaaacki/emby-processor
-wpci home pipeline last jaaacki/emby-processor --branch main
+wpci prci repo ls
+wpci prci repo show jaaacki/emby-processor
+wpci prci pipeline last jaaacki/emby-processor --branch main
 wpci lab pipeline log show sparkfn/media-butler 42 build
-wpci home doctor --json
-wpci home repo edit jaaacki/emby-processor --write --timeout 90
-wpci home pipeline run jaaacki/emby-processor --write --branch main
-wpci home repo delete jaaacki/emby-processor --write --confirm jaaacki/emby-processor
+wpci prci doctor --json
+wpci prci repo edit jaaacki/emby-processor --write --timeout 90
+wpci prci pipeline run jaaacki/emby-processor --write --branch main
+wpci prci repo delete jaaacki/emby-processor --write --confirm jaaacki/emby-processor
 ```
 
 ## Goals
@@ -76,12 +76,12 @@ A fresh install has no accounts. Configure a server, then validate:
 
 ```sh
 # one command: server + token in one shot (token via stdin)
-printf '%s' "$WPCI_TOKEN" | wpci account add home --server https://ci.example.com --token-stdin
-wpci home doctor --json
+printf '%s' "$WPCI_TOKEN" | wpci account add prci --server https://ci.example.com --token-stdin
+wpci prci doctor --json
 ```
 
 If `~/.local/bin` is not on your PATH the installer prints the `export PATH=…`
-line to add it. Windows uses `wpci account add home --server <url> --token-stdin`.
+line to add it. Windows uses `wpci account add prci --server <url> --token-stdin`.
 
 ### `wpci setup` (recommended — works in any shell, including AI agents)
 
@@ -109,13 +109,13 @@ as `_`). This makes `wpci <alias>` work, but it does **not** create a
 `wpci-<alias>` command in non-interactive shells — use `wpci setup` for that.
 
 ```sh
-export WPCI_HOME_SERVER=https://ci.example.com
-export WPCI_HOME_TOKEN=ghp_xxx
-wpci home repo ls
+export WPCI_PRCI_SERVER=https://ci.example.com
+export WPCI_PRCI_TOKEN=ghp_xxx
+wpci prci repo ls
 ```
 
 A stored account (from `setup` or `account add`) wins; env fills in only when no
-account file exists. `wpci home doctor` validates the env-defined account too.
+account file exists. `wpci prci doctor` validates the env-defined account too.
 
 
 

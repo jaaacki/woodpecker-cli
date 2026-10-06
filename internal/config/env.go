@@ -13,10 +13,10 @@ import (
 // where <SUFFIX> is the alias uppercased with every non-[A-Z0-9] rune replaced
 // by '_'. This lets a shell define an account without running `wpci account add`:
 //
-//	export WPCI_HOME_SERVER=https://ci.example.com
-//	export WPCI_HOME_TOKEN=ghp_xxx
-//	alias wpci-home='wpci home'
-//	wpci-home repo ls
+//	export WPCI_PRCI_SERVER=https://ci.example.com
+//	export WPCI_PRCI_TOKEN=ghp_xxx
+//	alias wpci-prci='wpci prci'
+//	wpci-prci repo ls
 //
 // enabling zero-config multi-account use from zsh aliases.
 
